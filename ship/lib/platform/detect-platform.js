@@ -11,23 +11,123 @@
  */
 
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execSync, exec } = require('child_process');
+const { promisify } = require('util');
+
+const execAsync = promisify(exec);
+const fsPromises = fs.promises;
 
 // Detection cache for performance (platform rarely changes during session)
 let _cachedDetection = null;
 let _cacheExpiry = 0;
 const CACHE_TTL_MS = 60000; // 1 minute cache
 
+// File read cache to avoid reading the same file multiple times (#17)
+const _fileCache = new Map();
+const _existsCache = new Map();
+
+/**
+ * Check if a file exists (cached)
+ * @param {string} filepath - Path to check
+ * @returns {boolean}
+ */
+function existsCached(filepath) {
+  if (_existsCache.has(filepath)) {
+    return _existsCache.get(filepath);
+  }
+  const exists = fs.existsSync(filepath);
+  _existsCache.set(filepath, exists);
+  return exists;
+}
+
+/**
+ * Check if a file exists (cached, async)
+ * @param {string} filepath - Path to check
+ * @returns {Promise<boolean>}
+ */
+async function existsCachedAsync(filepath) {
+  if (_existsCache.has(filepath)) {
+    return _existsCache.get(filepath);
+  }
+  try {
+    await fsPromises.access(filepath);
+    _existsCache.set(filepath, true);
+    return true;
+  } catch {
+    _existsCache.set(filepath, false);
+    return false;
+  }
+}
+
+/**
+ * Read file contents (cached)
+ * @param {string} filepath - Path to read
+ * @returns {string|null}
+ */
+function readFileCached(filepath) {
+  if (_fileCache.has(filepath)) {
+    return _fileCache.get(filepath);
+  }
+  try {
+    const content = fs.readFileSync(filepath, 'utf8');
+    _fileCache.set(filepath, content);
+    return content;
+  } catch {
+    _fileCache.set(filepath, null);
+    return null;
+  }
+}
+
+/**
+ * Read file contents (cached, async)
+ * @param {string} filepath - Path to read
+ * @returns {Promise<string|null>}
+ */
+async function readFileCachedAsync(filepath) {
+  if (_fileCache.has(filepath)) {
+    return _fileCache.get(filepath);
+  }
+  try {
+    const content = await fsPromises.readFile(filepath, 'utf8');
+    _fileCache.set(filepath, content);
+    return content;
+  } catch {
+    _fileCache.set(filepath, null);
+    return null;
+  }
+}
+
 /**
  * Detects CI platform by scanning for configuration files
  * @returns {string|null} CI platform name or null if not detected
  */
 function detectCI() {
-  if (fs.existsSync('.github/workflows')) return 'github-actions';
-  if (fs.existsSync('.gitlab-ci.yml')) return 'gitlab-ci';
-  if (fs.existsSync('.circleci/config.yml')) return 'circleci';
-  if (fs.existsSync('Jenkinsfile')) return 'jenkins';
-  if (fs.existsSync('.travis.yml')) return 'travis';
+  if (existsCached('.github/workflows')) return 'github-actions';
+  if (existsCached('.gitlab-ci.yml')) return 'gitlab-ci';
+  if (existsCached('.circleci/config.yml')) return 'circleci';
+  if (existsCached('Jenkinsfile')) return 'jenkins';
+  if (existsCached('.travis.yml')) return 'travis';
+  return null;
+}
+
+/**
+ * Detects CI platform by scanning for configuration files (async)
+ * @returns {Promise<string|null>} CI platform name or null if not detected
+ */
+async function detectCIAsync() {
+  const checks = await Promise.all([
+    existsCachedAsync('.github/workflows'),
+    existsCachedAsync('.gitlab-ci.yml'),
+    existsCachedAsync('.circleci/config.yml'),
+    existsCachedAsync('Jenkinsfile'),
+    existsCachedAsync('.travis.yml')
+  ]);
+  
+  if (checks[0]) return 'github-actions';
+  if (checks[1]) return 'gitlab-ci';
+  if (checks[2]) return 'circleci';
+  if (checks[3]) return 'jenkins';
+  if (checks[4]) return 'travis';
   return null;
 }
 
@@ -36,12 +136,37 @@ function detectCI() {
  * @returns {string|null} Deployment platform name or null if not detected
  */
 function detectDeployment() {
-  if (fs.existsSync('railway.json') || fs.existsSync('railway.toml')) return 'railway';
-  if (fs.existsSync('vercel.json')) return 'vercel';
-  if (fs.existsSync('netlify.toml') || fs.existsSync('.netlify')) return 'netlify';
-  if (fs.existsSync('fly.toml')) return 'fly';
-  if (fs.existsSync('.platform.sh')) return 'platform-sh';
-  if (fs.existsSync('render.yaml')) return 'render';
+  if (existsCached('railway.json') || existsCached('railway.toml')) return 'railway';
+  if (existsCached('vercel.json')) return 'vercel';
+  if (existsCached('netlify.toml') || existsCached('.netlify')) return 'netlify';
+  if (existsCached('fly.toml')) return 'fly';
+  if (existsCached('.platform.sh')) return 'platform-sh';
+  if (existsCached('render.yaml')) return 'render';
+  return null;
+}
+
+/**
+ * Detects deployment platform by scanning for platform-specific files (async)
+ * @returns {Promise<string|null>} Deployment platform name or null if not detected
+ */
+async function detectDeploymentAsync() {
+  const checks = await Promise.all([
+    existsCachedAsync('railway.json'),
+    existsCachedAsync('railway.toml'),
+    existsCachedAsync('vercel.json'),
+    existsCachedAsync('netlify.toml'),
+    existsCachedAsync('.netlify'),
+    existsCachedAsync('fly.toml'),
+    existsCachedAsync('.platform.sh'),
+    existsCachedAsync('render.yaml')
+  ]);
+  
+  if (checks[0] || checks[1]) return 'railway';
+  if (checks[2]) return 'vercel';
+  if (checks[3] || checks[4]) return 'netlify';
+  if (checks[5]) return 'fly';
+  if (checks[6]) return 'platform-sh';
+  if (checks[7]) return 'render';
   return null;
 }
 
@@ -50,11 +175,35 @@ function detectDeployment() {
  * @returns {string} Project type identifier
  */
 function detectProjectType() {
-  if (fs.existsSync('package.json')) return 'nodejs';
-  if (fs.existsSync('requirements.txt') || fs.existsSync('pyproject.toml') || fs.existsSync('setup.py')) return 'python';
-  if (fs.existsSync('Cargo.toml')) return 'rust';
-  if (fs.existsSync('go.mod')) return 'go';
-  if (fs.existsSync('pom.xml') || fs.existsSync('build.gradle')) return 'java';
+  if (existsCached('package.json')) return 'nodejs';
+  if (existsCached('requirements.txt') || existsCached('pyproject.toml') || existsCached('setup.py')) return 'python';
+  if (existsCached('Cargo.toml')) return 'rust';
+  if (existsCached('go.mod')) return 'go';
+  if (existsCached('pom.xml') || existsCached('build.gradle')) return 'java';
+  return 'unknown';
+}
+
+/**
+ * Detects project type by scanning for language-specific files (async)
+ * @returns {Promise<string>} Project type identifier
+ */
+async function detectProjectTypeAsync() {
+  const checks = await Promise.all([
+    existsCachedAsync('package.json'),
+    existsCachedAsync('requirements.txt'),
+    existsCachedAsync('pyproject.toml'),
+    existsCachedAsync('setup.py'),
+    existsCachedAsync('Cargo.toml'),
+    existsCachedAsync('go.mod'),
+    existsCachedAsync('pom.xml'),
+    existsCachedAsync('build.gradle')
+  ]);
+  
+  if (checks[0]) return 'nodejs';
+  if (checks[1] || checks[2] || checks[3]) return 'python';
+  if (checks[4]) return 'rust';
+  if (checks[5]) return 'go';
+  if (checks[6] || checks[7]) return 'java';
   return 'unknown';
 }
 
@@ -63,14 +212,41 @@ function detectProjectType() {
  * @returns {string|null} Package manager name or null if not detected
  */
 function detectPackageManager() {
-  if (fs.existsSync('pnpm-lock.yaml')) return 'pnpm';
-  if (fs.existsSync('yarn.lock')) return 'yarn';
-  if (fs.existsSync('bun.lockb')) return 'bun';
-  if (fs.existsSync('package-lock.json')) return 'npm';
-  if (fs.existsSync('poetry.lock')) return 'poetry';
-  if (fs.existsSync('Pipfile.lock')) return 'pipenv';
-  if (fs.existsSync('Cargo.lock')) return 'cargo';
-  if (fs.existsSync('go.sum')) return 'go';
+  if (existsCached('pnpm-lock.yaml')) return 'pnpm';
+  if (existsCached('yarn.lock')) return 'yarn';
+  if (existsCached('bun.lockb')) return 'bun';
+  if (existsCached('package-lock.json')) return 'npm';
+  if (existsCached('poetry.lock')) return 'poetry';
+  if (existsCached('Pipfile.lock')) return 'pipenv';
+  if (existsCached('Cargo.lock')) return 'cargo';
+  if (existsCached('go.sum')) return 'go';
+  return null;
+}
+
+/**
+ * Detects package manager by scanning for lockfiles (async)
+ * @returns {Promise<string|null>} Package manager name or null if not detected
+ */
+async function detectPackageManagerAsync() {
+  const checks = await Promise.all([
+    existsCachedAsync('pnpm-lock.yaml'),
+    existsCachedAsync('yarn.lock'),
+    existsCachedAsync('bun.lockb'),
+    existsCachedAsync('package-lock.json'),
+    existsCachedAsync('poetry.lock'),
+    existsCachedAsync('Pipfile.lock'),
+    existsCachedAsync('Cargo.lock'),
+    existsCachedAsync('go.sum')
+  ]);
+  
+  if (checks[0]) return 'pnpm';
+  if (checks[1]) return 'yarn';
+  if (checks[2]) return 'bun';
+  if (checks[3]) return 'npm';
+  if (checks[4]) return 'poetry';
+  if (checks[5]) return 'pipenv';
+  if (checks[6]) return 'cargo';
+  if (checks[7]) return 'go';
   return null;
 }
 
@@ -96,22 +272,69 @@ function detectBranchStrategy() {
       return 'multi-branch'; // dev + prod workflow
     }
 
-    // Check deployment configs for multi-environment setup
-    if (fs.existsSync('railway.json')) {
+    // Check deployment configs for multi-environment setup (uses cache)
+    if (existsCached('railway.json')) {
       try {
-        const config = JSON.parse(fs.readFileSync('railway.json', 'utf8'));
-        // Validate JSON structure before accessing properties
-        if (config && 
-            typeof config === 'object' &&
-            typeof config.environments === 'object' && 
-            config.environments !== null &&
-            Object.keys(config.environments).length > 1) {
-          return 'multi-branch';
+        const content = readFileCached('railway.json');
+        if (content) {
+          const config = JSON.parse(content);
+          // Validate JSON structure before accessing properties
+          if (config && 
+              typeof config === 'object' &&
+              typeof config.environments === 'object' && 
+              config.environments !== null &&
+              Object.keys(config.environments).length > 1) {
+            return 'multi-branch';
+          }
         }
       } catch {}
     }
 
     return 'single-branch'; // main only
+  } catch {
+    return 'single-branch';
+  }
+}
+
+/**
+ * Detects branch strategy (single-branch vs multi-branch with dev+prod) (async)
+ * @returns {Promise<string>} 'single-branch' or 'multi-branch'
+ */
+async function detectBranchStrategyAsync() {
+  try {
+    // Run git commands in parallel
+    const [localResult, remoteResult] = await Promise.all([
+      execAsync('git branch', { encoding: 'utf8' }).catch(() => ({ stdout: '' })),
+      execAsync('git branch -r', { encoding: 'utf8' }).catch(() => ({ stdout: '' }))
+    ]);
+
+    const allBranches = (localResult.stdout || '') + (remoteResult.stdout || '');
+
+    const hasStable = allBranches.includes('stable');
+    const hasProduction = allBranches.includes('production') || allBranches.includes('prod');
+
+    if (hasStable || hasProduction) {
+      return 'multi-branch';
+    }
+
+    // Check deployment configs for multi-environment setup (uses cache)
+    if (await existsCachedAsync('railway.json')) {
+      try {
+        const content = await readFileCachedAsync('railway.json');
+        if (content) {
+          const config = JSON.parse(content);
+          if (config && 
+              typeof config === 'object' &&
+              typeof config.environments === 'object' && 
+              config.environments !== null &&
+              Object.keys(config.environments).length > 1) {
+            return 'multi-branch';
+          }
+        }
+      } catch {}
+    }
+
+    return 'single-branch';
   } catch {
     return 'single-branch';
   }
@@ -145,7 +368,26 @@ function detectMainBranch() {
 }
 
 /**
- * Main detection function - aggregates all platform information
+ * Detects the main branch name (async)
+ * @returns {Promise<string>} Main branch name ('main' or 'master')
+ */
+async function detectMainBranchAsync() {
+  try {
+    const { stdout } = await execAsync('git symbolic-ref refs/remotes/origin/HEAD', { encoding: 'utf8' });
+    return stdout.trim().replace('refs/remotes/origin/', '');
+  } catch {
+    // Fallback: check common names
+    try {
+      await execAsync('git rev-parse --verify main', { encoding: 'utf8' });
+      return 'main';
+    } catch {
+      return 'master';
+    }
+  }
+}
+
+/**
+ * Main detection function - aggregates all platform information (sync)
  * Uses caching to avoid repeated filesystem/git operations
  * @param {boolean} forceRefresh - Force cache refresh
  * @returns {Object} Platform configuration object
@@ -165,8 +407,59 @@ function detect(forceRefresh = false) {
     packageManager: detectPackageManager(),
     branchStrategy: detectBranchStrategy(),
     mainBranch: detectMainBranch(),
-    hasPlanFile: fs.existsSync('PLAN.md'),
-    hasTechDebtFile: fs.existsSync('TECHNICAL_DEBT.md'),
+    hasPlanFile: existsCached('PLAN.md'),
+    hasTechDebtFile: existsCached('TECHNICAL_DEBT.md'),
+    timestamp: new Date(now).toISOString()
+  };
+  _cacheExpiry = now + CACHE_TTL_MS;
+  
+  return _cachedDetection;
+}
+
+/**
+ * Main detection function - aggregates all platform information (async)
+ * Uses Promise.all for parallel execution and caching
+ * @param {boolean} forceRefresh - Force cache refresh
+ * @returns {Promise<Object>} Platform configuration object
+ */
+async function detectAsync(forceRefresh = false) {
+  const now = Date.now();
+  
+  // Return cached result if still valid
+  if (!forceRefresh && _cachedDetection && now < _cacheExpiry) {
+    return _cachedDetection;
+  }
+  
+  // Run all detections in parallel
+  const [
+    ci,
+    deployment,
+    projectType,
+    packageManager,
+    branchStrategy,
+    mainBranch,
+    hasPlanFile,
+    hasTechDebtFile
+  ] = await Promise.all([
+    detectCIAsync(),
+    detectDeploymentAsync(),
+    detectProjectTypeAsync(),
+    detectPackageManagerAsync(),
+    detectBranchStrategyAsync(),
+    detectMainBranchAsync(),
+    existsCachedAsync('PLAN.md'),
+    existsCachedAsync('TECHNICAL_DEBT.md')
+  ]);
+  
+  _cachedDetection = {
+    ci,
+    deployment,
+    projectType,
+    packageManager,
+    branchStrategy,
+    mainBranch,
+    hasPlanFile,
+    hasTechDebtFile,
     timestamp: new Date(now).toISOString()
   };
   _cacheExpiry = now + CACHE_TTL_MS;
@@ -181,30 +474,41 @@ function detect(forceRefresh = false) {
 function invalidateCache() {
   _cachedDetection = null;
   _cacheExpiry = 0;
+  _fileCache.clear();
+  _existsCache.clear();
 }
 
-// When run directly, output JSON
+// When run directly, output JSON (uses async for better performance)
 if (require.main === module) {
-  try {
-    const result = detect();
-    console.log(JSON.stringify(result, null, 2));
-  } catch (error) {
-    console.error(JSON.stringify({
-      error: error.message,
-      timestamp: new Date().toISOString()
-    }, null, 2));
-    process.exit(1);
-  }
+  (async () => {
+    try {
+      const result = await detectAsync();
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      console.error(JSON.stringify({
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }, null, 2));
+      process.exit(1);
+    }
+  })();
 }
 
 // Export for use as module
 module.exports = {
   detect,
+  detectAsync,
   invalidateCache,
   detectCI,
+  detectCIAsync,
   detectDeployment,
+  detectDeploymentAsync,
   detectProjectType,
+  detectProjectTypeAsync,
   detectPackageManager,
+  detectPackageManagerAsync,
   detectBranchStrategy,
-  detectMainBranch
+  detectBranchStrategyAsync,
+  detectMainBranch,
+  detectMainBranchAsync
 };

@@ -8,6 +8,20 @@
  * @license MIT
  */
 
+/**
+ * Deep freeze an object for V8 optimization and immutability
+ * @param {Object} obj - Object to freeze
+ * @returns {Object} Frozen object
+ */
+function deepFreeze(obj) {
+  Object.keys(obj).forEach(key => {
+    if (typeof obj[key] === 'object' && obj[key] !== null && !(obj[key] instanceof RegExp)) {
+      deepFreeze(obj[key]);
+    }
+  });
+  return Object.freeze(obj);
+}
+
 const reviewPatterns = {
   /**
    * React framework patterns
@@ -276,6 +290,9 @@ const reviewPatterns = {
     ]
   }
 };
+
+// Freeze the patterns object for V8 optimization
+deepFreeze(reviewPatterns);
 
 // Pre-compute available frameworks Set for O(1) lookup
 const _availableFrameworks = null; // Lazy initialization

@@ -6,6 +6,20 @@
  * @license MIT
  */
 
+/**
+ * Deep freeze an object for V8 optimization and immutability
+ * @param {Object} obj - Object to freeze
+ * @returns {Object} Frozen object
+ */
+function deepFreeze(obj) {
+  Object.keys(obj).forEach(key => {
+    if (typeof obj[key] === 'object' && obj[key] !== null && !(obj[key] instanceof RegExp)) {
+      deepFreeze(obj[key]);
+    }
+  });
+  return Object.freeze(obj);
+}
+
 // Pre-compiled regex cache for performance
 const _compiledExcludePatterns = new Map();
 
@@ -254,6 +268,9 @@ const slopPatterns = {
     description: 'Hardcoded URLs that should be configuration'
   }
 };
+
+// Freeze the patterns object for V8 optimization
+deepFreeze(slopPatterns);
 
 /**
  * Get patterns for a specific language

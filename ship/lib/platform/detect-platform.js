@@ -100,7 +100,12 @@ function detectBranchStrategy() {
     if (fs.existsSync('railway.json')) {
       try {
         const config = JSON.parse(fs.readFileSync('railway.json', 'utf8'));
-        if (config.environments && Object.keys(config.environments).length > 1) {
+        // Validate JSON structure before accessing properties
+        if (config && 
+            typeof config === 'object' &&
+            typeof config.environments === 'object' && 
+            config.environments !== null &&
+            Object.keys(config.environments).length > 1) {
           return 'multi-branch';
         }
       } catch {}

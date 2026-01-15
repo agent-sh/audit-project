@@ -55,6 +55,11 @@ fi
 ```bash
 # If PR number provided in arguments
 if [ -n "$PR_ARG" ]; then
+  # Validate PR number is numeric
+  if ! [[ "$PR_ARG" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: PR number must be numeric (got: '$PR_ARG')"
+    exit 1
+  fi
   PR_NUMBER="$PR_ARG"
   echo "Using provided PR: #$PR_NUMBER"
 
@@ -83,6 +88,12 @@ if [ "$NEEDS_SELECTION" = "true" ]; then
 
   if [ -z "$PR_NUMBER" ]; then
     echo "ERROR: No PR selected"
+    exit 1
+  fi
+
+  # Validate PR number is numeric
+  if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: PR number must be numeric (got: '$PR_NUMBER')"
     exit 1
   fi
 fi

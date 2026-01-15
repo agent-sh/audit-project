@@ -1,6 +1,6 @@
 ---
 description: Intelligent task prioritization with code validation
-argument-hint: [filter] [--include-blocked] [--implement]
+argument-hint: "[filter] [--include-blocked] [--implement]"
 ---
 
 # /next-task - Intelligent Task Prioritization

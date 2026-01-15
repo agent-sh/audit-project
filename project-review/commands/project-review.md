@@ -1,6 +1,6 @@
 ---
 description: Multi-agent code review with iterative improvement
-argument-hint: [scope] [--recent] [--domain AGENT] [--quick] [--create-tech-debt]
+argument-hint: "[scope] [--recent] [--domain AGENT] [--quick] [--create-tech-debt]"
 ---
 
 # /project-review - Multi-Agent Code Review

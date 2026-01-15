@@ -1,6 +1,6 @@
 ---
 description: Complete PR workflow from commit to production with validation
-argument-hint: [--strategy STRATEGY] [--skip-tests] [--dry-run]
+argument-hint: "[--strategy STRATEGY] [--skip-tests] [--dry-run]"
 ---
 
 # /ship - Complete PR Workflow

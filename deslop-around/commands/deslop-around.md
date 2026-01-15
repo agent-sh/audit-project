@@ -1,6 +1,6 @@
 ---
 description: Cleanup AI slop with minimal diffs and behavior preservation
-argument-hint: [report|apply] [scope-path] [max-changes]
+argument-hint: "[report|apply] [scope-path] [max-changes]"
 ---
 
 # /deslop-around - AI Slop Cleanup

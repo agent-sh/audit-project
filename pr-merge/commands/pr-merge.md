@@ -1,6 +1,6 @@
 ---
 description: Intelligent PR merge with validation and deployment testing
-argument-hint: [pr-number] [--strategy STRATEGY] [--skip-validation] [--dry-run]
+argument-hint: "[pr-number] [--strategy STRATEGY] [--skip-validation] [--dry-run]"
 ---
 
 # /pr-merge - Intelligent PR Merge

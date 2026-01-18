@@ -8,6 +8,20 @@ allowed-tools: Bash(git:*), Bash(gh:*), Bash(npm:*), Bash(node:*), Read, Write, 
 
 Discover what to work on next and execute the complete implementation workflow.
 
+## Default Behavior (No Arguments)
+
+**When you run `/next-task` with NO arguments**:
+1. Goes to Phase 1: Policy Selection
+2. Policy selector checks for existing tasks in `.claude/tasks.json`
+3. If existing tasks found, **ASKS USER** what to do:
+   - Start new task (recommended - leaves existing task untouched)
+   - Resume existing task
+   - Abort existing task
+   - View status only
+4. Then continues with normal policy configuration
+
+**CRITICAL**: The workflow NEVER auto-resumes existing tasks. It ALWAYS asks first.
+
 ## Workflow Overview
 
 ```
@@ -190,11 +204,54 @@ Parse from $ARGUMENTS:
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
+## ⛔ CRITICAL: NO AUTO-RESUME GATE
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         ⛔ NO AUTO-RESUME ⛔                              ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  MANDATORY RULE: DO NOT automatically resume existing tasks/worktrees   ║
+║                                                                          ║
+║  ✅ CORRECT BEHAVIOR:                                                    ║
+║  - No arguments → Go to Phase 1 (Policy Selection)                      ║
+║  - Policy selector WILL ask about existing tasks                         ║
+║  - User explicitly chooses: resume, start fresh, or view status          ║
+║                                                                          ║
+║  ❌ INCORRECT BEHAVIOR (NEVER DO THIS):                                 ║
+║  - Seeing .claude/tasks.json with existing task → Auto-resume it        ║
+║  - Finding a worktree → Auto-resume it                                  ║
+║  - Detecting "in_progress" status → Auto-resume it                      ║
+║  - Assuming "user wants to continue" → Auto-resume it                   ║
+║                                                                          ║
+║  THE ONLY VALID WAYS TO RESUME:                                         ║
+║  1. User explicitly passes --resume flag                                ║
+║  2. Policy selector asks and user chooses "Resume"                      ║
+║                                                                          ║
+║  EXISTING TASKS ARE USUALLY NOT STALE - THEY MAY BE:                    ║
+║  - Running in another terminal/session                                  ║
+║  - Running by another agent                                             ║
+║  - Paused for user review                                               ║
+║  - Waiting for external CI/deployment                                   ║
+║                                                                          ║
+║  AUTO-RESUMING = CORRUPTING PARALLEL WORKFLOWS                          ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
 ## Pre-flight: Handle Arguments
 
 ```javascript
 const workflowState = require('${CLAUDE_PLUGIN_ROOT}/lib/state/workflow-state.js');
 const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+
+// ⛔ CRITICAL CHECK: If no flags provided, DO NOT check for existing tasks here
+// That check happens in policy-selector, which will ASK the user
+if (args.length === 0 || (!args.includes('--resume') && !args.includes('--status') && !args.includes('--abort'))) {
+  console.log("No arguments provided - starting Phase 1 (Policy Selection)");
+  console.log("Policy selector will check for existing tasks and ask user what to do.");
+  // SKIP to Phase 1 below
+}
 
 // Handle --status
 if (args.includes('--status')) {
@@ -362,19 +419,89 @@ await Task({
 ```javascript
 workflowState.startPhase('planning');
 
-await Task({
+const planOutput = await Task({
   subagent_type: "next-task:planning-agent",
   model: "opus",
-  prompt: `Design implementation plan for task #${state.task.id}. Enter plan mode for user approval.`
+  prompt: `Design implementation plan for task #${state.task.id}. Output structured JSON plan between === PLAN_START === and === PLAN_END === markers.`
 });
 
-// Agent uses EnterPlanMode → user approves → ExitPlanMode
+// Parse the plan from agent output
+const planMatch = planOutput.match(/=== PLAN_START ===([\s\S]*?)=== PLAN_END ===/);
+if (!planMatch) {
+  console.error("ERROR: Planning agent did not output structured plan");
+  return;
+}
+
+const plan = JSON.parse(planMatch[1].trim());
+console.log(`✓ Plan received: ${plan.steps.length} steps, ${plan.complexity.overall} complexity`);
 ```
 
-## Phase 6: User Approval
+## Phase 6: User Approval (Plan Mode)
 
-Planning agent handles this via EnterPlanMode/ExitPlanMode.
 **This is the LAST human interaction point.**
+
+The orchestrator enters plan mode and presents the structured plan:
+
+```javascript
+// Convert plan to markdown for presentation
+const planMarkdown = `# Implementation Plan: ${plan.task.title}
+
+## Overview
+${plan.overview}
+
+## Architecture Decision
+${plan.architecture}
+
+${plan.steps.map((step, i) => `
+## Step ${i + 1}: ${step.title}
+
+**Goal**: ${step.goal}
+
+**Files to modify**:
+${step.files.map(f => `- \`${f.path}\` - ${f.changes}`).join('\n')}
+
+**Implementation**:
+${step.details.map(d => `- ${d}`).join('\n')}
+
+${step.risks?.length ? `**Risks**: ${step.risks.join(', ')}` : ''}
+`).join('\n')}
+
+## Critical Paths
+
+**High Risk**: ${plan.critical.highRisk.join(', ') || 'None'}
+**Needs Review**: ${plan.critical.needsReview.join(', ') || 'None'}
+${plan.critical.performance?.length ? `**Performance**: ${plan.critical.performance.join(', ')}` : ''}
+${plan.critical.security?.length ? `**Security**: ${plan.critical.security.join(', ')}` : ''}
+
+## Complexity Assessment
+
+**Overall**: ${plan.complexity.overall}
+**Confidence**: ${plan.complexity.confidence}
+**Reasoning**: ${plan.complexity.reasoning}
+`;
+
+console.log("✓ Entering plan mode for user approval...");
+
+// Enter plan mode with the formatted plan
+EnterPlanMode();
+
+// When we reach here, user has approved via ExitPlanMode
+console.log("✓ Plan approved by user");
+console.log("✓ Proceeding to implementation...");
+
+// Save approved plan to state
+workflowState.completePhase({
+  planApproved: true,
+  plan: plan,
+  approvedAt: new Date().toISOString()
+});
+```
+
+**What happens in plan mode**:
+1. User sees the formatted plan
+2. User reviews and can request changes
+3. User approves via ExitPlanMode
+4. Control returns here to Phase 7 (Implementation)
 
 ## Phase 7: Implementation
 

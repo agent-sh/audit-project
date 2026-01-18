@@ -9,22 +9,60 @@ model: haiku
 
 **CRITICAL REQUIREMENT**: You MUST use the AskUserQuestion tool to present checkbox options to the user. Do NOT present options as plain text or ask the user to type responses. The AskUserQuestion tool creates a structured checkbox UI that is required for this agent to function correctly.
 
+## ⛔ MANDATORY FIRST STEP: Check for Existing Tasks
+
+**BEFORE asking about policy**, you MUST:
+1. Check `.claude/tasks.json` for existing tasks
+2. If found, ASK USER what to do (resume, start new, abort, or view status)
+3. NEVER assume the user wants to resume
+4. NEVER auto-resume based on seeing existing state
+
+**Why this is critical**:
+- Existing tasks may be running in another session (parallel workflows)
+- User might want to start a new task without touching the old one
+- Auto-resuming = corrupting workflows and losing work
+- User must explicitly choose to resume
+
 You configure the workflow policy by presenting options to the user via AskUserQuestion.
 The first option in each group is always "Continue with defaults" to minimize friction.
 
-## Phase 1: Check for Existing Policy
+## Phase 1: Check for Existing Tasks (MANDATORY)
 
-First, check if there's an existing workflow or saved preferences:
+**CRITICAL**: Before asking about policy, you MUST check for existing tasks/worktrees.
 
 ```bash
-# Check for active workflow
-WORKFLOW_STATE=".claude/workflow-state.json"
-if [ -f "$WORKFLOW_STATE" ]; then
-  CURRENT_STATUS=$(cat "$WORKFLOW_STATE" | jq -r '.workflow.status')
-  if [ "$CURRENT_STATUS" = "in_progress" ] || [ "$CURRENT_STATUS" = "paused" ]; then
-    echo "ACTIVE_WORKFLOW=true"
-    echo "CURRENT_PHASE=$(cat "$WORKFLOW_STATE" | jq -r '.phases.current')"
-    echo "TASK_TITLE=$(cat "$WORKFLOW_STATE" | jq -r '.task.title // empty')"
+# Check for tasks registry (ALWAYS check this first)
+TASKS_REGISTRY=".claude/tasks.json"
+if [ -f "$TASKS_REGISTRY" ]; then
+  TASK_COUNT=$(cat "$TASKS_REGISTRY" | jq '.tasks | length')
+  if [ "$TASK_COUNT" -gt 0 ]; then
+    echo "EXISTING_TASKS=true"
+    echo "TASK_COUNT=$TASK_COUNT"
+
+    # Get details of most recent task
+    RECENT_TASK=$(cat "$TASKS_REGISTRY" | jq -r '.tasks[0]')
+    echo "RECENT_TASK_ID=$(echo "$RECENT_TASK" | jq -r '.id')"
+    echo "RECENT_TASK_TITLE=$(echo "$RECENT_TASK" | jq -r '.title')"
+    echo "RECENT_TASK_BRANCH=$(echo "$RECENT_TASK" | jq -r '.branch')"
+    echo "RECENT_TASK_WORKTREE=$(echo "$RECENT_TASK" | jq -r '.worktreePath')"
+    echo "RECENT_TASK_ACTIVITY=$(echo "$RECENT_TASK" | jq -r '.lastActivityAt')"
+
+    # Calculate how old it is
+    LAST_ACTIVITY=$(echo "$RECENT_TASK" | jq -r '.lastActivityAt')
+    if [ "$LAST_ACTIVITY" != "null" ] && [ "$LAST_ACTIVITY" != "" ]; then
+      HOURS_AGO=$(( ($(date +%s) - $(date -d "$LAST_ACTIVITY" +%s 2>/dev/null || echo 0)) / 3600 ))
+      echo "HOURS_SINCE_ACTIVITY=$HOURS_AGO"
+
+      if [ "$HOURS_AGO" -lt 1 ]; then
+        echo "STATUS=ACTIVE (less than 1 hour old - may be running elsewhere)"
+      elif [ "$HOURS_AGO" -lt 24 ]; then
+        echo "STATUS=RECENT (less than 24 hours old)"
+      else
+        echo "STATUS=STALE (more than 24 hours old)"
+      fi
+    else
+      echo "STATUS=UNKNOWN (no timestamp)"
+    fi
   fi
 fi
 
@@ -33,6 +71,77 @@ PREFS_FILE=".claude/next-task.local.md"
 if [ -f "$PREFS_FILE" ]; then
   echo "HAS_SAVED_PREFS=true"
 fi
+```
+
+## Phase 1.5: Ask About Existing Tasks (If Found)
+
+**CRITICAL**: If existing tasks found, you MUST ask the user BEFORE proceeding.
+
+```javascript
+if (EXISTING_TASKS) {
+  const taskDescription = `Task #${RECENT_TASK_ID}: ${RECENT_TASK_TITLE}`;
+  const activityDescription = HOURS_SINCE_ACTIVITY < 1
+    ? "⚠️ ACTIVE - May be running in another session"
+    : HOURS_SINCE_ACTIVITY < 24
+    ? `Recent activity ${HOURS_SINCE_ACTIVITY} hours ago`
+    : `Last activity ${HOURS_SINCE_ACTIVITY} hours ago (stale)`;
+
+  const warningMessage = HOURS_SINCE_ACTIVITY < 1
+    ? "⚠️ WARNING: This task was active less than 1 hour ago. It may be running in another terminal or by another agent. Resuming here could corrupt the workflow."
+    : "";
+
+  AskUserQuestion({
+    questions: [
+      {
+        header: "Existing Task",
+        question: `Found existing task: ${taskDescription}\n\nStatus: ${activityDescription}\nBranch: ${RECENT_TASK_BRANCH}\nWorktree: ${RECENT_TASK_WORKTREE}\n\n${warningMessage}\n\nWhat would you like to do?`,
+        options: [
+          {
+            label: "Start New Task (Recommended)",
+            description: "Leave existing task untouched and select a new task to work on"
+          },
+          {
+            label: "Resume Existing Task",
+            description: STATUS === 'ACTIVE'
+              ? "⚠️ DANGER: May conflict with running session"
+              : "Continue from where it left off"
+          },
+          {
+            label: "Abort Existing Task",
+            description: "Clean up worktree and remove from registry, then start fresh"
+          },
+          {
+            label: "View Status Only",
+            description: "Show detailed status and exit without changes"
+          }
+        ],
+        multiSelect: false
+      }
+    ]
+  });
+
+  // Handle user response
+  if (userChoice === "View Status Only") {
+    // Show detailed status and exit
+    console.log(`Detailed status for ${taskDescription}...`);
+    return; // Exit policy selector
+  }
+
+  if (userChoice === "Resume Existing Task") {
+    // Set flag to resume this task (skip task discovery)
+    RESUME_TASK_ID = RECENT_TASK_ID;
+    SKIP_TASK_DISCOVERY = true;
+  }
+
+  if (userChoice === "Abort Existing Task") {
+    // Clean up the existing task
+    console.log(`Aborting task #${RECENT_TASK_ID}...`);
+    // Call workflowState.abortWorkflow() or similar cleanup
+    // Then continue with normal policy selection
+  }
+
+  // If "Start New Task" - just continue with normal policy selection
+}
 ```
 
 ## Phase 2: Detect Available Sources
@@ -93,8 +202,8 @@ AskUserQuestion({
       question: "What type of tasks should I prioritize?",
       options: [
         {
-          label: "Continue (Recommended)",
-          description: "Resume last task or pick next by priority score"
+          label: "All Tasks (Recommended)",
+          description: "Consider all tasks, pick by priority score"
         },
         {
           label: "Bugs",
@@ -146,37 +255,14 @@ AskUserQuestion({
 })
 ```
 
-## Phase 4: Handle Active Workflow
+## Phase 4: Normal Policy Configuration (If No Conflicts)
 
-If there's an active workflow, ask if user wants to resume or start fresh:
+If user chose "Start New Task" or "Abort Existing Task" or no existing tasks found,
+proceed with normal policy configuration (Phase 3 questions).
 
-```javascript
-if (ACTIVE_WORKFLOW) {
-  AskUserQuestion({
-    questions: [
-      {
-        header: "Active Workflow",
-        question: `Found active workflow: "${TASK_TITLE}" at phase ${CURRENT_PHASE}. What would you like to do?`,
-        options: [
-          {
-            label: "Resume (Recommended)",
-            description: "Continue from where you left off"
-          },
-          {
-            label: "Start Fresh",
-            description: "Abort current workflow and start new task selection"
-          },
-          {
-            label: "View Status",
-            description: "Show current workflow status without changes"
-          }
-        ],
-        multiSelect: false
-      }
-    ]
-  })
-}
-```
+**Note**: The old "Handle Active Workflow" logic has been moved to Phase 1.5 above,
+which now checks tasks.json instead of workflow-state.json and provides clearer
+options about what to do with existing tasks.
 
 ## Phase 5: Map Responses to Policy
 
@@ -185,7 +271,7 @@ Map user selections to policy values:
 ```javascript
 const MAPS = {
   source: { 'Continue with defaults (Recommended)': 'gh-issues', 'GitHub Issues': 'gh-issues', 'Linear': 'linear', 'PLAN.md / tasks.md': 'tasks-md' },
-  priority: { 'Continue (Recommended)': 'continue', 'Bugs': 'bugs', 'Security': 'security', 'Features': 'features' },
+  priority: { 'All Tasks (Recommended)': 'all', 'Bugs': 'bugs', 'Security': 'security', 'Features': 'features' },
   stop: { 'Merged (Recommended)': 'merged', 'Implemented': 'implemented', 'PR Created': 'pr-created', 'All Green': 'all-green', 'Deployed': 'deployed', 'Production': 'production' }
 };
 

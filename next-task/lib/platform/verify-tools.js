@@ -10,75 +10,19 @@
  * @license MIT
  */
 
-const { execFileSync, spawnSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
 
 // Detect Windows platform
 const isWindows = process.platform === 'win32';
 
-// Import shared deprecation utilities
-const { warnDeprecation, _resetDeprecationWarnings } = require('../utils/deprecation');
-
 /**
- * Checks if a tool is available and returns its version (sync)
- * Uses safe execution methods to avoid shell injection vulnerabilities
- * @deprecated Use checkToolAsync() instead. Will be removed in v3.0.0.
- * @param {string} command - Command to check (e.g., 'git', 'node')
- * @param {string} versionFlag - Flag to get version (default: '--version')
- * @returns {Object} { available: boolean, version: string|null }
- */
-function checkTool(command, versionFlag = '--version') {
-  warnDeprecation('checkTool', 'checkToolAsync');
-  // Validate command contains only safe characters (alphanumeric, underscore, hyphen)
-  if (!/^[a-zA-Z0-9_-]+$/.test(command)) {
-    return { available: false, version: null };
-  }
-  // Validate versionFlag contains only safe characters
-  if (!/^[a-zA-Z0-9_-]+$/.test(versionFlag)) {
-    return { available: false, version: null };
-  }
-
-  try {
-    let output;
-
-    if (isWindows) {
-      // On Windows, use spawnSync with shell to handle .cmd/.bat scripts
-      // Input is validated above so this is safe
-      const result = spawnSync(command, [versionFlag], {
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'ignore'],
-        timeout: 5000,
-        windowsHide: true,
-        shell: true
-      });
-      if (result.error || result.status !== 0) {
-        return { available: false, version: null };
-      }
-      output = (result.stdout || '').trim();
-    } else {
-      // On Unix, use execFileSync (more secure, no shell)
-      output = execFileSync(command, [versionFlag], {
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'ignore'],
-        timeout: 5000
-      }).trim();
-    }
-
-    // Extract version from first line
-    const version = output.split('\n')[0];
-    return { available: true, version };
-  } catch {
-    return { available: false, version: null };
-  }
-}
-
-/**
- * Checks if a tool is available and returns its version (async)
+ * Checks if a tool is available and returns its version
  * Uses safe execution methods to avoid shell injection vulnerabilities
  * @param {string} command - Command to check (e.g., 'git', 'node')
  * @param {string} versionFlag - Flag to get version (default: '--version')
  * @returns {Promise<Object>} { available: boolean, version: string|null }
  */
-function checkToolAsync(command, versionFlag = '--version') {
+function checkTool(command, versionFlag = '--version') {
   return new Promise((resolve) => {
     // Validate command contains only safe characters (alphanumeric, underscore, hyphen)
     if (!/^[a-zA-Z0-9_-]+$/.test(command)) {
@@ -92,8 +36,7 @@ function checkToolAsync(command, versionFlag = '--version') {
     let child;
 
     if (isWindows) {
-      // On Windows, spawn shell directly with command as single argument to avoid deprecation warning
-      // Input is validated above so this is safe
+      // On Windows, spawn shell directly with command as single argument
       child = spawn('cmd.exe', ['/c', command, versionFlag], {
         stdio: ['pipe', 'pipe', 'ignore'],
         windowsHide: true
@@ -183,31 +126,15 @@ const TOOL_DEFINITIONS = [
 ];
 
 /**
- * Verifies all development tools (sync)
- * @deprecated Use verifyToolsAsync() instead. Will be removed in v3.0.0.
- * @returns {Object} Tool availability map
- */
-function verifyTools() {
-  warnDeprecation('verifyTools', 'verifyToolsAsync');
-  const result = {};
-  for (const tool of TOOL_DEFINITIONS) {
-    result[tool.name] = checkTool(tool.name, tool.flag);
-  }
-  return result;
-}
-
-/**
- * Verifies all development tools (async, parallel)
- * Runs all tool checks in parallel for ~10x faster execution
+ * Verifies all development tools (parallel execution)
+ * Runs all tool checks in parallel for fast execution
  * @returns {Promise<Object>} Tool availability map
  */
-async function verifyToolsAsync() {
-  // Run all checks in parallel
+async function verifyTools() {
   const results = await Promise.all(
-    TOOL_DEFINITIONS.map(tool => checkToolAsync(tool.name, tool.flag))
+    TOOL_DEFINITIONS.map(tool => checkTool(tool.name, tool.flag))
   );
 
-  // Build result object
   const toolMap = {};
   TOOL_DEFINITIONS.forEach((tool, index) => {
     toolMap[tool.name] = results[index];
@@ -216,11 +143,11 @@ async function verifyToolsAsync() {
   return toolMap;
 }
 
-// When run directly, output JSON (uses async for better performance)
+// When run directly, output JSON
 if (require.main === module) {
   (async () => {
     try {
-      const result = await verifyToolsAsync();
+      const result = await verifyTools();
       console.log(JSON.stringify(result, null, 2));
     } catch (error) {
       console.error(JSON.stringify({
@@ -235,10 +162,6 @@ if (require.main === module) {
 // Export for use as module
 module.exports = {
   verifyTools,
-  verifyToolsAsync,
   checkTool,
-  checkToolAsync,
-  TOOL_DEFINITIONS,
-  // Testing utilities (prefixed with _ to indicate internal use)
-  _resetDeprecationWarnings
+  TOOL_DEFINITIONS
 };

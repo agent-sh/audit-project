@@ -2,14 +2,27 @@
  * Source Cache
  * File-based persistence for task source preferences
  *
+ * State directory is platform-aware:
+ * - Claude Code: .claude/sources/
+ * - OpenCode: .opencode/sources/
+ * - Codex CLI: .codex/sources/
+ *
  * @module lib/sources/source-cache
  */
 
 const fs = require('fs');
 const path = require('path');
+const { getStateDir } = require('../platform/state-dir');
 
-const SOURCES_DIR = '.claude/sources';
 const PREFERENCE_FILE = 'preference.json';
+
+/**
+ * Get the sources directory path (platform-aware)
+ * @returns {string} Path to sources directory
+ */
+function getSourcesDir() {
+  return path.join(getStateDir(), 'sources');
+}
 
 /**
  * Validate tool name to prevent path traversal
@@ -26,10 +39,11 @@ function isValidToolName(toolName) {
  * @returns {string} Path to sources directory
  */
 function ensureDir() {
-  if (!fs.existsSync(SOURCES_DIR)) {
-    fs.mkdirSync(SOURCES_DIR, { recursive: true });
+  const sourcesDir = getSourcesDir();
+  if (!fs.existsSync(sourcesDir)) {
+    fs.mkdirSync(sourcesDir, { recursive: true });
   }
-  return SOURCES_DIR;
+  return sourcesDir;
 }
 
 /**
@@ -40,7 +54,7 @@ function ensureDir() {
  * // Or: { source: 'custom', type: 'cli', tool: 'tea' }
  */
 function getPreference() {
-  const filePath = path.join(SOURCES_DIR, PREFERENCE_FILE);
+  const filePath = path.join(getSourcesDir(), PREFERENCE_FILE);
   if (!fs.existsSync(filePath)) {
     return null;
   }
@@ -62,7 +76,7 @@ function getPreference() {
  */
 function savePreference(preference) {
   ensureDir();
-  const filePath = path.join(SOURCES_DIR, PREFERENCE_FILE);
+  const filePath = path.join(getSourcesDir(), PREFERENCE_FILE);
   fs.writeFileSync(filePath, JSON.stringify({
     ...preference,
     savedAt: new Date().toISOString()
@@ -80,7 +94,7 @@ function getToolCapabilities(toolName) {
     console.error(`Invalid tool name: ${toolName}`);
     return null;
   }
-  const filePath = path.join(SOURCES_DIR, `${toolName}.json`);
+  const filePath = path.join(getSourcesDir(), `${toolName}.json`);
   if (!fs.existsSync(filePath)) {
     return null;
   }
@@ -106,7 +120,7 @@ function saveToolCapabilities(toolName, capabilities) {
     return;
   }
   ensureDir();
-  const filePath = path.join(SOURCES_DIR, `${toolName}.json`);
+  const filePath = path.join(getSourcesDir(), `${toolName}.json`);
   fs.writeFileSync(filePath, JSON.stringify({
     ...capabilities,
     discoveredAt: new Date().toISOString()
@@ -117,10 +131,11 @@ function saveToolCapabilities(toolName, capabilities) {
  * Clear all cached preferences
  */
 function clearCache() {
-  if (fs.existsSync(SOURCES_DIR)) {
-    const files = fs.readdirSync(SOURCES_DIR);
+  const sourcesDir = getSourcesDir();
+  if (fs.existsSync(sourcesDir)) {
+    const files = fs.readdirSync(sourcesDir);
     for (const file of files) {
-      const filePath = path.join(SOURCES_DIR, file);
+      const filePath = path.join(sourcesDir, file);
       const stats = fs.statSync(filePath);
       if (stats.isFile()) {
         fs.unlinkSync(filePath);

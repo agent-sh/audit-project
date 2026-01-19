@@ -2,16 +2,21 @@
  * Simplified workflow state management
  *
  * Two files:
- * - Main project: .claude/tasks.json (tracks active worktree/task)
- * - Worktree: .claude/flow.json (tracks workflow progress)
+ * - Main project: {stateDir}/tasks.json (tracks active worktree/task)
+ * - Worktree: {stateDir}/flow.json (tracks workflow progress)
+ *
+ * State directory is platform-aware:
+ * - Claude Code: .claude/
+ * - OpenCode: .opencode/
+ * - Codex CLI: .codex/
  */
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { getStateDir } = require('../platform/state-dir');
 
 // File paths
-const CLAUDE_DIR = '.claude';
 const TASKS_FILE = 'tasks.json';
 const FLOW_FILE = 'flow.json';
 
@@ -74,14 +79,14 @@ const PHASES = [
 ];
 
 /**
- * Ensure .claude directory exists
+ * Ensure state directory exists (platform-aware)
  */
-function ensureClaudeDir(basePath) {
-  const claudeDir = path.join(basePath, CLAUDE_DIR);
-  if (!fs.existsSync(claudeDir)) {
-    fs.mkdirSync(claudeDir, { recursive: true });
+function ensureStateDir(basePath) {
+  const stateDir = path.join(basePath, getStateDir(basePath));
+  if (!fs.existsSync(stateDir)) {
+    fs.mkdirSync(stateDir, { recursive: true });
   }
-  return claudeDir;
+  return stateDir;
 }
 
 // =============================================================================
@@ -93,7 +98,7 @@ function ensureClaudeDir(basePath) {
  */
 function getTasksPath(projectPath = process.cwd()) {
   const validatedBase = validatePath(projectPath);
-  const tasksPath = path.join(validatedBase, CLAUDE_DIR, TASKS_FILE);
+  const tasksPath = path.join(validatedBase, getStateDir(projectPath), TASKS_FILE);
   validatePathWithinBase(tasksPath, validatedBase);
   return tasksPath;
 }
@@ -125,7 +130,7 @@ function readTasks(projectPath = process.cwd()) {
  * Write tasks.json to main project
  */
 function writeTasks(tasks, projectPath = process.cwd()) {
-  ensureClaudeDir(projectPath);
+  ensureStateDir(projectPath);
   const tasksPath = getTasksPath(projectPath);
   fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2), 'utf8');
   return true;
@@ -170,7 +175,7 @@ function hasActiveTask(projectPath = process.cwd()) {
  */
 function getFlowPath(worktreePath = process.cwd()) {
   const validatedBase = validatePath(worktreePath);
-  const flowPath = path.join(validatedBase, CLAUDE_DIR, FLOW_FILE);
+  const flowPath = path.join(validatedBase, getStateDir(worktreePath), FLOW_FILE);
   validatePathWithinBase(flowPath, validatedBase);
   return flowPath;
 }
@@ -198,7 +203,7 @@ function readFlow(worktreePath = process.cwd()) {
  * Creates a copy to avoid mutating the original object
  */
 function writeFlow(flow, worktreePath = process.cwd()) {
-  ensureClaudeDir(worktreePath);
+  ensureStateDir(worktreePath);
   // Clone to avoid mutating the original object
   const flowCopy = JSON.parse(JSON.stringify(flow));
   flowCopy.lastUpdate = new Date().toISOString();

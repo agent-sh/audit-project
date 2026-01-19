@@ -34,12 +34,54 @@ class SchemaValidator {
   static validate(data, schema) {
     const errors = [];
 
-    // Check type (handle arrays correctly)
+    // Check type (handle arrays correctly and null separately)
     if (schema.type) {
-      const actualType = Array.isArray(data) ? 'array' : typeof data;
+      let actualType;
+      if (data === null) {
+        actualType = 'null';
+      } else if (Array.isArray(data)) {
+        actualType = 'array';
+      } else {
+        actualType = typeof data;
+      }
+
       if (actualType !== schema.type) {
         errors.push(`Expected type ${schema.type}, got ${actualType}`);
         return { valid: false, errors };
+      }
+    }
+
+    // String validations (for primitive string values)
+    if (schema.type === 'string' && typeof data === 'string') {
+      if (schema.minLength && data.length < schema.minLength) {
+        errors.push(`String too short (min ${schema.minLength})`);
+      }
+      if (schema.maxLength && data.length > schema.maxLength) {
+        errors.push(`String too long (max ${schema.maxLength})`);
+      }
+      if (schema.pattern && !new RegExp(schema.pattern).test(data)) {
+        errors.push(`String does not match pattern ${schema.pattern}`);
+      }
+    }
+
+    // Array validations (for primitive array values)
+    if (schema.type === 'array' && Array.isArray(data)) {
+      if (schema.minItems && data.length < schema.minItems) {
+        errors.push(`Array too short (min ${schema.minItems})`);
+      }
+      if (schema.maxItems && data.length > schema.maxItems) {
+        errors.push(`Array too long (max ${schema.maxItems})`);
+      }
+      if (schema.uniqueItems) {
+        const seen = new Set();
+        for (const item of data) {
+          const key = JSON.stringify(item);
+          if (seen.has(key)) {
+            errors.push(`Array contains duplicate items`);
+            break;
+          }
+          seen.add(key);
+        }
       }
     }
 

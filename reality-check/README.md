@@ -53,14 +53,6 @@ Run a comprehensive reality check scan.
 | `--output` | file, display, both | both | Where to output results |
 | `--file` | path | reality-check-report.md | Output file path |
 
-### `/reality-check:set`
-
-Show available scan flags and examples.
-
-```
-/reality-check:set
-```
-
 ## Agent
 
 | Agent | Purpose | Model |

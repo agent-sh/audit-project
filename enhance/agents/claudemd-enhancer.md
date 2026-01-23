@@ -223,12 +223,52 @@ const PROJECT_MEMORY_FILES = [
 
 Files are checked in order of preference. The first found is analyzed.
 
+<constraints>
 ## Constraints
 
 - Do not modify project memory files without explicit `--fix` flag
 - Always validate file references before reporting broken
 - Consider context when flagging efficiency issues
 - Cross-platform suggestions are advisory, not required
+</constraints>
+
+<examples>
+### Example: Missing WHY Explanations
+
+**Before (flagged):**
+```markdown
+## Rules
+1. Always run tests before committing
+2. Use semantic commit messages
+3. Don't push to main directly
+```
+
+**After (fixed):**
+```markdown
+## Critical Rules
+1. **Always run tests before committing**
+   *WHY: Catches regressions before they reach main branch.*
+
+2. **Use semantic commit messages**
+   *WHY: Enables automated changelog generation and clear history.*
+
+3. **Don't push to main directly**
+   *WHY: PRs ensure code review and CI validation.*
+```
+
+### Example: Cross-Platform Compatibility
+
+**Before (flagged - hardcoded path):**
+```markdown
+State files are stored in `.claude/tasks.json`
+```
+
+**After (fixed):**
+```markdown
+State files are stored in `${STATE_DIR}/tasks.json`
+(`.claude/` for Claude Code, `.opencode/` for OpenCode, `.codex/` for Codex)
+```
+</examples>
 
 ## Quality Multiplier
 

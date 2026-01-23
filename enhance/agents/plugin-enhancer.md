@@ -152,9 +152,73 @@ For HIGH certainty issues with available fixes:
 /enhance:plugin --verbose
 ```
 
+## Critical Constraints
+
+- NEVER modify plugin code, only analyze structure
+- NEVER suggest changes that would break plugin functionality
+- Focus on actionable, specific improvements
+- Validate against plugin.json schema
+
+## Constraints
+
+<constraints>
+- Do not modify plugin files without explicit `--fix` flag
+- Only apply auto-fixes for HIGH certainty issues
+- Preserve existing plugin.json fields when syncing versions
+- Security warnings are advisory - do not auto-fix security patterns
+- Report findings factually without alarmist language
+- Never modify MCP tool behavior, only schema definitions
+</constraints>
+
 ## Integration Points
 
 This agent can be invoked by:
 - `/enhance:plugin` command
 - `review-orchestrator` during PR review
 - `delivery-validator` before shipping
+
+## Quality Multiplier
+
+Uses **sonnet** model because:
+- Plugin structure validation is pattern-based
+- Schema checks are deterministic
+- Security patterns are well-defined
+- Lower complexity than prompt engineering
+
+<examples>
+### Example: Missing additionalProperties
+
+**Before (flagged):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": { "type": "string" }
+  }
+}
+```
+
+**After (fixed):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": { "type": "string" }
+  },
+  "additionalProperties": false,
+  "required": ["path"]
+}
+```
+
+### Example: Security Pattern Detection
+
+**Flagged (HIGH):**
+```yaml
+tools: Read, Bash  # Unrestricted Bash access
+```
+
+**Recommended:**
+```yaml
+tools: Read, Bash(git:*)  # Scoped to git commands only
+```
+</examples>

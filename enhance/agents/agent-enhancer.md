@@ -113,9 +113,11 @@ Optimal example count: 2-5
 
 ### 6. Anti-Patterns (MEDIUM/LOW Certainty)
 
+<vague-language-patterns>
 **Vague Instructions (MEDIUM):**
-- Words like: "usually", "sometimes", "often", "try to", "if possible"
-- Replace with definitive: "always", "never", "must", "will"
+- Fuzzy qualifiers: `usually`, `sometimes`, `often`, `try to`, `if possible`
+- Replace with definitive: `always`, `never`, `must`, `will`
+</vague-language-patterns>
 
 **Prompt Bloat (LOW):**
 - Estimated token count > 2000 (rough: length / 4)
@@ -250,6 +252,60 @@ For HIGH certainty issues with available fixes:
 | HIGH | 8 | Definite issues (some auto-fixable) |
 | MEDIUM | 5 | Likely improvements |
 | LOW | 1 | Advisory suggestions |
+
+<constraints>
+## Constraints
+
+- Do not modify agent files without explicit `--fix` flag
+- Only apply auto-fixes for HIGH certainty issues
+- Preserve existing frontmatter fields when adding missing ones
+- Report issues factually without subjective quality judgments
+- Never remove content, only suggest improvements
+</constraints>
+
+<examples>
+### Example: Unrestricted Bash Access
+
+**Before (flagged - HIGH):**
+```yaml
+---
+name: my-agent
+description: Does something
+tools: Read, Bash
+---
+```
+
+**After (fixed):**
+```yaml
+---
+name: my-agent
+description: Does something
+tools: Read, Bash(git:*)
+---
+```
+
+### Example: Missing Role Section
+
+**Before (flagged - HIGH):**
+```markdown
+# My Agent
+
+## What It Does
+This agent processes files...
+```
+
+**After (fixed):**
+```markdown
+# My Agent
+
+## Your Role
+
+You are a file processing agent that analyzes and transforms data files.
+
+## What It Does
+This agent processes files...
+```
+</examples>
 
 ## Integration Points
 

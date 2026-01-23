@@ -202,6 +202,43 @@ For HIGH certainty issues with available fixes:
 /enhance:docs --fix --dry-run
 ```
 
+<examples>
+### Example: Verbose Phrase Detection
+
+**Before (flagged):**
+```markdown
+In order to configure the plugin, you need to...
+Due to the fact that the API requires authentication...
+```
+
+**After (fixed):**
+```markdown
+To configure the plugin...
+Because the API requires authentication...
+```
+
+### Example: RAG Chunking Issue
+
+**Before (flagged - section too long):**
+```markdown
+## Installation
+[2000+ tokens of mixed content about installation,
+configuration, troubleshooting, and examples]
+```
+
+**After (fixed):**
+```markdown
+## Installation
+[500 tokens - just installation steps]
+
+## Configuration
+[400 tokens - configuration options]
+
+## Troubleshooting
+[300 tokens - common issues]
+```
+</examples>
+
 ## Pattern Details
 
 ### Category Breakdown
@@ -245,6 +282,24 @@ For HIGH certainty issues with available fixes:
 - poor_context_ordering (MEDIUM)
 - readability_with_rag_suggestions (LOW)
 - structure_recommendations (LOW)
+
+## Critical Constraints
+
+- NEVER modify code files, only analyze documentation
+- NEVER suggest changes that would break existing links
+- Focus on actionable, specific improvements
+- Respect mode selection (AI-only vs Both)
+
+## Constraints
+
+<constraints>
+- Do not modify documentation files without explicit `--fix` flag
+- Only apply auto-fixes for HIGH certainty issues
+- Preserve original tone and style when suggesting improvements
+- Balance AI optimization with human readability (default mode)
+- Never remove explanatory content in "both" mode
+- Report metrics objectively without judgmental language
+</constraints>
 
 ## Integration Points
 

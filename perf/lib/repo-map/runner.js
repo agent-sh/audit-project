@@ -130,8 +130,6 @@ async function fullScan(basePath, languages, options = {}) {
   if (!cmd) {
     throw new Error('ast-grep not found');
   }
-  const fileLimit = Number.isFinite(options.fileLimit) ? Math.max(0, Math.floor(options.fileLimit)) : null;
-  let remainingLimit = fileLimit;
   
   const map = {
     version: '1.0.0',
@@ -156,17 +154,11 @@ async function fullScan(basePath, languages, options = {}) {
   
   // Run queries for each language
   for (const lang of languages) {
-    if (remainingLimit !== null && remainingLimit <= 0) break;
     const langQueries = queries.getQueriesForLanguage(lang);
     if (!langQueries) continue;
 
-    const files = findFilesForLanguage(basePath, lang, {
-      maxFiles: remainingLimit !== null ? remainingLimit : undefined
-    });
+    const files = findFilesForLanguage(basePath, lang);
     if (files.length === 0) continue;
-    if (remainingLimit !== null) {
-      remainingLimit = Math.max(0, remainingLimit - files.length);
-    }
 
     const fileEntries = [];
     const symbolMapsByFile = new Map();
@@ -333,18 +325,15 @@ async function fullScan(basePath, languages, options = {}) {
  * @param {string} language - Language name
  * @returns {string[]} - Array of file paths
  */
-function findFilesForLanguage(basePath, language, options = {}) {
+function findFilesForLanguage(basePath, language) {
   const extensions = LANGUAGE_EXTENSIONS[language] || [];
   const files = [];
   const isIgnored = slopAnalyzers.parseGitignore(basePath, fs, path);
-  const maxFiles = Number.isFinite(options.maxFiles) ? Math.max(0, Math.floor(options.maxFiles)) : null;
   
   function scan(dir) {
-    if (maxFiles !== null && files.length >= maxFiles) return;
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (maxFiles !== null && files.length >= maxFiles) break;
         const fullPath = path.join(dir, entry.name);
         
         if (entry.isDirectory()) {
@@ -361,7 +350,6 @@ function findFilesForLanguage(basePath, language, options = {}) {
           const ext = path.extname(entry.name).toLowerCase();
           if (extensions.includes(ext)) {
             files.push(fullPath);
-            if (maxFiles !== null && files.length >= maxFiles) break;
           }
         }
       }

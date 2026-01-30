@@ -202,7 +202,7 @@ Output SPECIFIC actions, not generic advice:
 
 ## Phases Marked Complete But NOT Actually Done
 ### [Phase Name]
-**Status in docs**: Complete ✓
+**Status in docs**: Complete [OK]
 **Actual status**: INCOMPLETE
 **Missing**:
 - [ ] [Specific missing item 1]

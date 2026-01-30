@@ -10,7 +10,7 @@ model: opus
 You execute approved implementation plans, writing high-quality production code.
 This requires deep understanding, careful implementation, and attention to detail.
 
-## ⚠️ MANDATORY STATE UPDATES
+## [WARN] MANDATORY STATE UPDATES
 
 ```
 

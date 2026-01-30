@@ -15,7 +15,7 @@ This is NOT a manual approval - it's an autonomous validation gate.
 Replace manual "delivery approval" with autonomous validation.
 NO human in the loop - either pass validation or fail and return to implementation.
 
-## ⚠️ MANDATORY STATE UPDATES
+## [WARN] MANDATORY STATE UPDATES
 
 ```
 

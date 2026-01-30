@@ -326,10 +326,10 @@ Try: --recent or specific path for smaller scope.
 
 ## Success Criteria
 
-- ✓ All agents completed review
-- ✓ Evidence-based findings (file:line provided)
-- ✓ Critical issues fixed or documented
-- ✓ Verification passes
-- ✓ TECHNICAL_DEBT.md updated (if enabled)
+- [OK] All agents completed review
+- [OK] Evidence-based findings (file:line provided)
+- [OK] Critical issues fixed or documented
+- [OK] Verification passes
+- [OK] TECHNICAL_DEBT.md updated (if enabled)
 
 Begin Phase 1 now.

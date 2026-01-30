@@ -310,7 +310,7 @@ All subsequent operations will occur in isolated environment.
 Proceeding to exploration phase...
 ```
 
-## ⚠️ WORKTREE CLEANUP RESPONSIBILITIES
+## [WARN] WORKTREE CLEANUP RESPONSIBILITIES
 
 ```
 

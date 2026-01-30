@@ -22,7 +22,7 @@ Discover what to work on next and execute the complete implementation workflow.
 
 **CRITICAL**: The workflow NEVER auto-resumes existing tasks. It ALWAYS asks first.
 
-## ⚠️ QUESTION LABEL LIMIT (OpenCode Compatibility)
+## [WARN] QUESTION LABEL LIMIT (OpenCode Compatibility)
 
 **All AskUserQuestion option labels MUST be ≤30 characters.** This is enforced by OpenCode.
 
@@ -141,7 +141,7 @@ workflowState.updateFlow({
 });
 ```
 
-## ⚠️ MANDATORY STATE UPDATES - EVERY AGENT
+## [WARN] MANDATORY STATE UPDATES - EVERY AGENT
 
 ```
 
@@ -234,7 +234,7 @@ Parse from $ARGUMENTS:
 /next-task --resume ../worktrees/my-task-123  # Resume by worktree path
 ```
 
-### ⚠️ EXISTING SESSION vs STALE SESSION - IMPORTANT
+### [WARN] EXISTING SESSION vs STALE SESSION - IMPORTANT
 
 ```
 
@@ -699,7 +699,7 @@ await Task({
 workflowState.completePhase({ docsUpdated: true });
 ```
 
-## ⚠️ EXPLICIT HANDOFF TO /ship - CRITICAL
+## [WARN] EXPLICIT HANDOFF TO /ship - CRITICAL
 
 After docs-updater completes, you MUST EXPLICITLY invoke /ship.
 **DO NOT rely on SubagentStop hooks alone** - explicitly call the ship skill.

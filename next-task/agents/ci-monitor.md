@@ -225,15 +225,24 @@ async function handlePRComments(prNumber) {
 
 ## Phase 6: Main Monitor Loop
 
+### Loop Termination Conditions
+
+Agent MUST exit monitoring loop when ANY of these occur:
+1. All CI checks pass AND no unresolved comments - SUCCESS
+2. 5 fix iterations exhausted - ESCALATE
+3. 30 minutes total elapsed - TIMEOUT
+4. ci-fixer reports unfixable issue - ESCALATE
+
 ```javascript
 async function monitorPR(prNumber) {
   workflowState.startPhase('ci-wait');
   let fixIteration = 0;
+  let ciResult = null;  // Declare outside loop for scope
 
   while (fixIteration < MAX_FIX_ITERATIONS) {
     // Wait for CI
     console.log(`\n## CI Monitor - Iteration ${fixIteration + 1}`);
-    const ciResult = await waitForCI(prNumber);
+    ciResult = await waitForCI(prNumber);
 
     if (ciResult.status === 'success') {
       // CI passed - check for comments

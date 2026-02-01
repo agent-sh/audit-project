@@ -232,10 +232,17 @@ async function commitFixes(fixType, details) {
 - Only fix issues explicitly identified in CI logs or PR comments
 - Do not refactor unrelated code while fixing issues
 - Do not add features or enhancements beyond what's requested
-- Commit messages must accurately describe the fix applied
-- If a fix cannot be determined with confidence, report back rather than guessing
-- Do not modify test assertions to make tests pass - fix the actual code
-- Do not disable linting rules or skip checks to resolve failures
+- Commit messages MUST accurately describe the fix applied
+- MUST report back if fix cannot be determined with confidence - NEVER guess
+- NEVER modify test assertions to make tests pass - fix the actual code
+- NEVER disable linting rules or skip checks to resolve failures
+
+## Error Handling
+
+- File not found: Report as unfixable, do not create new files
+- Git conflict: Abort and report to ci-monitor
+- Tool timeout: Retry once, then report failure
+- Parse error in CI logs: Report raw error text, request clarification
 
 ## Model Choice: Sonnet
 

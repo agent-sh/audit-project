@@ -118,27 +118,23 @@ function createSecretPattern(pattern, description, additionalExcludes = []) {
 const slopPatterns = {
   /**
    * Console debugging in JavaScript/TypeScript
-   * IMPROVED: Only flags console.log and console.debug (actual debug statements)
-   * console.warn and console.error are legitimate for validation/error handling
-   * Excludes CLI tools, scripts, entry points that have legitimate console output
+   * IMPROVED: Excludes scripts, E2E infrastructure, seed files, CLI tools
    */
   console_debugging: {
-    pattern: /console\.(log|debug)\(/,
+    pattern: /console\.(log|debug|info|warn)\(/,
     exclude: [
       '*.test.*', '*.spec.*', '*.config.*',
       'bin/**', '**/bin/**', 'scripts/**', '**/scripts/**',
       'cli.js', '**/cli.js', '**/cli/**',
-      '**/e2e/**', '**/test/**', '**/tests/**',
-      '**/seed*.{js,ts}', '**/fixtures/**', '**/mocks/**',
-      'globalSetup.*', 'globalTeardown.*',
-      '**/*-manager.{js,ts}', '**/*Manager.{js,ts}',
-      '**/mcp-server/**', '**/index.js',
-      '**/validator.js', '**/verify-tools.js', '**/detect-platform.js'  // CLI tools with stdout output
+      '**/e2e/**', '**/test/**', '**/tests/**',  // E2E infrastructure
+      '**/seed*.{js,ts}', '**/fixtures/**', '**/mocks/**',  // Seed and fixture files
+      'globalSetup.*', 'globalTeardown.*',  // Test setup files
+      '**/*-manager.{js,ts}', '**/*Manager.{js,ts}'  // Test helper managers
     ],
     severity: 'medium',
     autoFix: 'remove',
     language: 'javascript',
-    description: 'console.log/debug statements (console.warn/error are legitimate)'
+    description: 'Console.log statements left in production code (excludes scripts, E2E, seeds)'
   },
 
   /**
@@ -340,16 +336,14 @@ const slopPatterns = {
 
   /**
    * Empty catch blocks (JavaScript/TypeScript)
-   * Only matches truly empty catches - those with comments are intentional
-   * Pattern: catch (e) {} but NOT catch { [comment] }
    */
   empty_catch_js: {
-    pattern: /catch\s*(?:\([^)]*\))?\s*\{\s*\}/,
-    exclude: ['*.test.*', '*.spec.*'],
+    pattern: /catch\s*\([^)]*\)\s*\{\s*\}/,
+    exclude: [],
     severity: 'high',
     autoFix: 'add_logging',
     language: 'javascript',
-    description: 'Empty catch blocks without error handling or comment'
+    description: 'Empty catch blocks without error handling'
   },
 
   /**
@@ -366,18 +360,49 @@ const slopPatterns = {
 
   /**
    * Magic numbers in business logic
-   * DISABLED: Too many false positives - thresholds, limits, timeouts are intentional
-   * Semantic analysis needed to distinguish magic numbers from config values
-   * Use ESLint no-magic-numbers rule with ignores instead
+   * IMPROVED: Focuses on real magic numbers (2-3 digits) in business logic files
+   * Excludes styling, config, constants, and common safe patterns (HTTP codes, ports, percentages)
+   * Strategy: File-based exclusions > pattern matching for precision
    */
   magic_numbers: {
-    pattern: null,  // DISABLED - requires semantic analysis
-    exclude: [],
+    // Match 2-3 digit numbers, excluding common safe values
+    // Excludes: 0, 1, -1 (boolean-like), and common HTTP status codes
+    pattern: /(?<![a-zA-Z_\d#$])\b(?!0\b|1\b|-1\b|200\b|201\b|204\b|400\b|401\b|403\b|404\b|500\b|502\b|503\b)[2-9]\d{1,2}\b(?![a-zA-Z_\d])/,
+    exclude: [
+      // Test files
+      '*.test.*', '*.spec.*', '**/test/**', '**/tests/**', '**/e2e/**', '**/__tests__/**',
+
+      // Config and data files
+      '*.json', '*.yaml', '*.yml', '*.toml', '*.lock', '*.config.*', '**/config/**',
+      '**/.env*', '**/package.json', '**/tsconfig.json',
+
+      // Styling files (CSS, design systems)
+      '*.css', '*.scss', '*.sass', '*.less', '*.styl',
+      '**/*style*', '**/*Style*', '**/*styles*', '**/*Styles*',
+      '**/*theme*', '**/*Theme*', '**/*colors*', '**/*Colors*',
+      '**/*design*', '**/*spacing*', '**/*layout*',
+
+      // Constants and configuration modules
+      '**/*constants*', '**/*Constants*', '**/*const.{js,ts}',
+      '**/*enums*', '**/*Enums*', '**/constants/**',
+
+      // Database and migrations
+      '**/migrations/**', '**/prisma/**', '**/db/**',
+      '**/*migration*', '**/*seed*', '**/*fixture*',
+
+      // Mock data
+      '**/fixtures/**', '**/mocks/**', '**/*mock*', '**/*Mock*',
+
+      // HTML templates (inline styles)
+      '*.html', '*.ejs', '*.pug', '*.hbs',
+
+      // Build artifacts
+      'dist/**', 'build/**', '.next/**', 'out/**'
+    ],
     severity: 'low',
     autoFix: 'flag',
     language: null,
-    description: 'Magic numbers detection disabled (use ESLint no-magic-numbers instead)',
-    requiresMultiPass: true  // Mark as needing semantic analysis
+    description: 'Magic numbers (2-3 digits) in business logic that should be named constants (excludes styling, configs, HTTP codes)'
   },
 
   /**
@@ -589,30 +614,34 @@ const slopPatterns = {
 
   /**
    * Process.exit in libraries
-   * DISABLED: Too many false positives in CLI tools, MCP servers, error handlers
-   * process.exit() is legitimate in entry points, CLI tools, and error boundaries
+   * IMPROVED: Excludes scripts/, prisma/, and all legitimate script locations
    */
   process_exit: {
-    pattern: null,  // DISABLED - too many legitimate uses
-    exclude: [],
+    pattern: /process\.exit\(/,
+    exclude: [
+      '*.test.*', 'cli.js', 'index.js',
+      'bin/**', '**/bin/**', 'scripts/**', '**/scripts/**',
+      'prisma/**', '**/prisma/**',  // Database seed scripts
+      '**/seed*.{js,ts}', '**/migration*.{js,ts}', '**/backfill*.{js,ts}',  // Data scripts
+      '**/cli/**', '**/*.cli.{js,ts}',
+      '**/slop-patterns.js'
+    ],
     severity: 'high',
     autoFix: 'flag',
     language: 'javascript',
-    description: 'process.exit() detection disabled (legitimate in CLIs, servers, error handlers)'
+    description: 'process.exit() should not be in library code (excludes scripts, seeds, migrations)'
   },
 
   /**
    * Bare URLs in code (should use constants)
-   * DISABLED: Too many false positives - docs, links, comments are intentional
-   * URLs in comments/docs are not "hardcoded" in the code sense
    */
   bare_urls: {
-    pattern: null,  // DISABLED - too noisy
-    exclude: [],
+    pattern: /https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+    exclude: ['*.test.*', '*.md', 'package.json', 'README.*'],
     severity: 'low',
     autoFix: 'flag',
     language: null,
-    description: 'Bare URLs detection disabled (too many false positives in docs/comments)'
+    description: 'Hardcoded URLs that should be configuration'
   },
 
   // ============================================================================
@@ -657,16 +686,15 @@ const slopPatterns = {
 
   /**
    * File path references in code comments
-   * DISABLED: Too many false positives - documentation references are helpful
-   * These references add context, not slop
+   * References like "see auth-flow.md" may become outdated
    */
   file_path_references: {
-    pattern: null,  // DISABLED - references are helpful, not slop
-    exclude: [],
+    pattern: /\/\/.*(?:see|refer\s+to|in|per|documented\s+in)\s+([a-zA-Z0-9_\-./]+\.(?:md|js|ts|json|yaml|yml|toml|txt))/i,
+    exclude: ['*.md', 'README.*', '*.test.*', '*.spec.*'],
     severity: 'low',
     autoFix: 'flag',
     language: null,
-    description: 'File path references detection disabled (helpful context, not slop)'
+    description: 'File path references in comments that may be outdated'
   },
 
   // ============================================================================
@@ -888,16 +916,16 @@ const slopPatterns = {
 
   /**
    * Speculative Generality - Unused parameters (heuristic)
-   * DISABLED: Underscore-prefixed params are often intentional (callback signatures, interface compliance)
-   * Use ESLint no-unused-vars with args: 'none' or argsIgnorePattern: '^_' instead
+   * Detects function parameters prefixed with underscore (convention for unused)
+   * May indicate over-designed interface
    */
   speculative_generality_unused_params: {
-    pattern: null,  // DISABLED - underscore params are often intentional
-    exclude: [],
+    pattern: /function\s+\w+\s*\([^)]*_\w+[^)]*\)/,
+    exclude: ['*.test.*', '*.spec.*', '*.d.ts', '**/tests/**'],
     severity: 'low',
     autoFix: 'flag',
     language: 'javascript',
-    description: 'Unused params detection disabled (underscore convention is intentional)'
+    description: 'Underscore-prefixed parameter (heuristic - may be unused/speculative)'
   },
 
   /**

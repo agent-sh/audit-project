@@ -1,24 +1,55 @@
 ---
 name: sync-docs
 description: "Sync documentation with code. Use when user asks to update docs, check docs, fix stale documentation, update changelog, or after code changes."
-version: 1.0.0
-argument-hint: "[report|apply] [--scope=all|recent|before-pr] [path]"
+version: 1.1.0
+argument-hint: "[report|apply] [--scope=all|recent|before-pr] [--include-undocumented]"
+allowed-tools: Bash(git:*), Read, Grep, Glob
 ---
 
 # sync-docs
 
 Unified skill for syncing documentation with code state. Combines discovery, analysis, and CHANGELOG update into a single workflow.
 
+## Quick Start - Agent Instructions
+
+**Step 1**: Get changed files (use Bash):
+```bash
+# Recent changes (default scope)
+git diff --name-only origin/main..HEAD 2>/dev/null || git diff --name-only HEAD~5..HEAD
+
+# Or for all files
+git ls-files '*.md'
+```
+
+**Step 2**: Find docs that reference changed files (use Grep):
+- Search for filenames, function names, class names in `*.md` files
+- Check README.md, CHANGELOG.md, docs/*.md
+
+**Step 3**: Analyze each doc for issues:
+- Version mismatches (compare doc versions to package.json)
+- Removed exports (symbols in docs but not in code)
+- Outdated code examples
+- Import path changes
+
+**Step 4**: Check CHANGELOG:
+- Look for `## [Unreleased]` section
+- Compare recent commit messages to CHANGELOG entries
+
+**Step 5**: If repo-map exists (`{stateDir}/repo-map.json` - platform state directory):
+- Load it to get accurate export list
+- Find exports not mentioned in any documentation
+- Report as `undocumented-export` issues
+
 ## Input
 
-Arguments: `[report|apply] [--scope=all|recent|before-pr] [path]`
+Arguments: `[report|apply] [--scope=all|recent|before-pr] [--include-undocumented]`
 
 - **Mode**: `report` (default) or `apply`
 - **Scope**:
   - `recent` (default): Files changed since last commit to main
   - `all`: Scan all docs against all code
   - `before-pr`: Files in current branch, optimized for /next-task Phase 11
-  - `path`: Specific file or directory
+- **--include-undocumented**: Find exports not mentioned in any docs (uses repo-map)
 
 ## Architecture
 
@@ -29,17 +60,24 @@ sync-docs skill
     |-- Phase 1: Detect project context
     |-- Phase 2: Find related docs (lib/collectors/docs-patterns)
     |-- Phase 3: Analyze issues
+    |-- Phase 3.5: Find undocumented exports (repo-map integration)
     |-- Phase 4: Check CHANGELOG
     |-- Phase 5: Return structured results
 ```
 
 The skill MUST NOT apply fixes directly. It returns structured data for the orchestrator to decide what to do.
 
-## Phase 1: Detect Project Context
+---
 
-Detect project type and find documentation files:
+## Implementation Details (Reference)
 
-## Phase 1.5: Ensure Repo-Map (NEW)
+The sections below describe the internal JavaScript implementation for reference only. Agents should follow the Quick Start instructions above using Bash, Read, and Grep tools.
+
+### Phase 1: Detect Project Context
+
+Detect project type and find documentation files.
+
+### Phase 1.5: Ensure Repo-Map
 
 Before analyzing issues, ensure repo-map is available for accurate symbol detection:
 

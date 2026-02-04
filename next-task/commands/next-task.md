@@ -324,64 +324,96 @@ Use Edit tool to apply. Commit message: "fix: clean up AI slop"`
 
 **Blocking gate** - Must run iterations before delivery validation.
 
-Follow the `orchestrate-review` skill exactly.
+**CRITICAL**: You MUST spawn multiple parallel reviewer agents. Do NOT use a single generic reviewer.
 
-```javascript
-workflowState.startPhase('review-loop');
+### Step 1: Get Changed Files
 
-// REQUIRED: Run the review loop with MINIMUM 1 iteration
-// Orchestrator may override after 3+ iterations if issues are non-blocking
-let iteration = 0;
-const MAX_ITERATIONS = 5;
-const MIN_ITERATIONS = 1;
-
-while (iteration < MAX_ITERATIONS) {
-  iteration++;
-  console.log(`[REVIEW] Iteration ${iteration}`);
-
-  // Run review passes (see orchestrate-review skill)
-  const findings = await runReviewPasses();
-
-  if (findings.openCount === 0) {
-    workflowState.updateFlow({
-      reviewResult: { approved: true, iterations: iteration }
-    });
-    break;
-  }
-
-  // Fix issues, commit, run deslop
-  await fixIssues(findings);
-
-  // After 3 iterations, orchestrator MAY override if only low/medium issues remain
-  if (iteration >= 3 && findings.bySeverity.critical.length === 0
-      && findings.bySeverity.high.length === 0) {
-    console.log('[ORCHESTRATOR] 3+ iterations with no critical/high issues');
-    console.log('[ORCHESTRATOR] May proceed with override');
-    workflowState.updateFlow({
-      reviewResult: { approved: true, iterations: iteration, orchestratorOverride: true }
-    });
-    break;
-  }
-}
-
-// VERIFICATION OUTPUT - MANDATORY
-console.log(`[VERIFIED] Review: ${iteration} iterations, approved: ${reviewResult.approved}`);
+```bash
+git diff --name-only main...HEAD
 ```
 
+### Step 2: Detect Signals for Conditional Specialists
+
+Based on changed files, detect which additional specialists are needed:
+
+| Signal | Pattern | Specialist |
+|--------|---------|------------|
+| hasDb | `/(db\|migrations?\|schema\|prisma\|sql)/i` | database specialist |
+| hasApi | `/(api\|routes?\|controllers?\|handlers?)/i` | api designer |
+| hasFrontend | `/\.(tsx\|jsx\|vue\|svelte)$/` | frontend specialist |
+| hasBackend | `/(server\|backend\|services?\|domain)/i` | backend specialist |
+| hasDevops | `/(\.github\/workflows\|Dockerfile\|k8s\|terraform)/i` | devops reviewer |
+| needsArchitecture | 20+ changed files | architecture reviewer |
+
+### Step 3: Spawn ALL Reviewer Agents in Parallel
+
+**MANDATORY**: Spawn these 4 core reviewers (ALWAYS) + any conditional specialists detected above.
+
+```javascript
+// 4 CORE REVIEWERS - ALWAYS SPAWN ALL 4 IN PARALLEL
+const coreReviewers = [
+  { role: 'code quality reviewer', focus: 'Style, best practices, bugs, error handling, duplication' },
+  { role: 'security reviewer', focus: 'Auth flaws, input validation, injection, secrets exposure' },
+  { role: 'performance reviewer', focus: 'N+1 queries, blocking ops, hot path issues, memory leaks' },
+  { role: 'test coverage reviewer', focus: 'Missing tests, edge cases, test quality, mock appropriateness' }
+];
+
+// Spawn ALL 4 core reviewers in parallel using Task tool
+const reviewResults = await Promise.all([
+  Task({ subagent_type: 'general-purpose', model: 'sonnet',
+    prompt: `You are a code quality reviewer. Review these files: ${files.join(', ')}
+Focus: Style and consistency, Best practices, Bugs and logic errors, Error handling, Maintainability, Duplication
+Return findings as JSON array with: file, line, severity (critical/high/medium/low), description, suggestion` }),
+  Task({ subagent_type: 'general-purpose', model: 'sonnet',
+    prompt: `You are a security reviewer. Review these files: ${files.join(', ')}
+Focus: Auth/authz flaws, Input validation, Injection risks, Secrets exposure, Insecure defaults
+Return findings as JSON array with: file, line, severity (critical/high/medium/low), description, suggestion` }),
+  Task({ subagent_type: 'general-purpose', model: 'sonnet',
+    prompt: `You are a performance reviewer. Review these files: ${files.join(', ')}
+Focus: N+1 queries, Blocking operations, Hot path inefficiencies, Memory leaks
+Return findings as JSON array with: file, line, severity (critical/high/medium/low), description, suggestion` }),
+  Task({ subagent_type: 'general-purpose', model: 'sonnet',
+    prompt: `You are a test coverage reviewer. Review these files: ${files.join(', ')}
+Focus: Missing tests, Edge case coverage, Test quality, Integration needs, Mock appropriateness
+Return findings as JSON array with: file, line, severity (critical/high/medium/low), description, suggestion` })
+]);
+
+// Add conditional specialists based on signals (spawn in parallel with appropriate prompts)
+```
+
+### Step 4: Aggregate Findings
+
+Combine all reviewer findings, deduplicate by file+line+description, group by severity.
+
+### Step 5: Fix Issues (severity order: critical -> high -> medium -> low)
+
+For each finding, use Edit tool to apply the suggested fix. Commit after each batch.
+
+### Step 6: Iterate Until Clean (max 5 iterations)
+
+Repeat steps 3-5 until:
+- `openCount === 0` (all issues resolved) -> approved
+- 3+ iterations with only medium/low issues -> orchestrator may override
+- 5 iterations reached -> blocked
+
 ### Review Iteration Rules
-- Must run at least 1 iteration (never 0)
+- MUST run at least 1 full iteration with ALL 4 core reviewers
+- Do NOT use a single generic reviewer - spawn all specialists in parallel
 - Orchestrator may override after 3+ iterations if only medium/low issues remain
 - Do not skip directly to delivery validation
-- Do not claim "review passed" without running iterations
+- Do not claim "review passed" without spawning the reviewer agents
 
-### Review Decision Gate
+### Verification Output (MANDATORY)
 
-If review exits with `blocked: true`:
-1. **Critical/high issues OR security/performance/architecture** -> re-run review
-2. **Medium/low code-quality only after 3+ iterations** -> may override
-3. **Unclear** -> re-run review
-
-Override only via `workflowState.updateFlow({ reviewResult: { approved: true, orchestratorOverride: true, iterations: N } })`.
+After review loop completes, output:
+```
+[VERIFIED] Review Loop Complete
+- Iterations: N
+- Core reviewers spawned: code-quality, security, performance, test-coverage
+- Conditional specialists: [list any that were added]
+- Findings resolved: X critical, Y high, Z medium
+- Status: approved | blocked
+```
 </phase-9>
 
 ## Phase 10: Delivery Validation

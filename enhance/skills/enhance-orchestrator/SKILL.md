@@ -67,7 +67,7 @@ const discovery = {
 
 ```javascript
 // Use relative path from skill directory to plugin lib
-// Path: skills/orchestrator/ -> ../../lib/
+// Path: skills/enhance-orchestrator/ -> ../../lib/
 const { getSuppressionPath } = require('../../lib/cross-platform');
 const { loadAutoSuppressions, getProjectId, clearAutoSuppressions } = require('../../lib/enhance/auto-suppression');
 

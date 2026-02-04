@@ -1,7 +1,7 @@
 ---
 name: perf-analyzer
 description: Synthesize perf findings into evidence-backed recommendations and decisions.
-tools: Read, Write
+tools: Skill, Read, Write
 model: opus
 ---
 

@@ -51,7 +51,7 @@ Execute the `enhance-orchestrator` skill directly. The skill workflow:
 4. Aggregate results from all enhancers
 5. Generate unified report
 
-See `skills/orchestrator/SKILL.md` for detailed implementation.
+See `skills/enhance-orchestrator/SKILL.md` for detailed implementation.
 
 ## Output Format
 

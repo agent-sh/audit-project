@@ -21,28 +21,16 @@ Detects issues that span multiple files - things single-file analysis misses:
 
 ## Workflow
 
-1. **Load** - Load all agents, skills, commands from target path
-2. **Extract** - Extract tool mentions, agent refs, critical instructions
-3. **Analyze** - Run cross-file pattern checks
-4. **Report** - Return findings grouped by category
+1. **Run Analyzer** - Execute the JavaScript analyzer to get findings:
+   ```bash
+   node -e "const a = require('./lib/enhance/cross-file-analyzer.js'); console.log(JSON.stringify(a.analyze('.'), null, 2));"
+   ```
+   For a specific path: `a.analyze('./plugins/enhance')`
 
-## Implementation
+2. **Parse Results** - The analyzer returns JSON with `summary` and `findings`
+3. **Report** - Return findings grouped by category
 
-```javascript
-// Use the cross-file analyzer from lib
-const crossFileAnalyzer = require('../../lib/enhance/cross-file-analyzer');
-
-// Run analysis
-const results = crossFileAnalyzer.analyze(targetPath, {
-  categories: ['tool-consistency', 'workflow', 'consistency']
-});
-
-// Return structured findings
-return {
-  summary: results.summary,
-  findings: results.findings
-};
-```
+The JavaScript analyzer (`lib/enhance/cross-file-analyzer.js`) implements all cross-file detection. The patterns below are reference documentation.
 
 ## Detection Patterns
 

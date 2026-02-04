@@ -18,12 +18,19 @@ Analyze prompts for clarity, structure, examples, and output reliability.
 
 ## Workflow
 
-1. **Discover** - Find prompt files (.md, .txt)
-2. **Classify** - Detect prompt type from path/content
-3. **Check** - Run pattern checks against knowledge below
-4. **Filter** - Apply certainty filtering
-5. **Report** - Generate markdown output
-6. **Fix** - Apply auto-fixes if --fix flag present
+1. **Run Analyzer** - Execute the JavaScript analyzer to get findings:
+   ```bash
+   node -e "const a = require('./lib/enhance/prompt-analyzer.js'); console.log(JSON.stringify(a.analyzeAllPrompts('.'), null, 2));"
+   ```
+   For a specific path: `a.analyzeAllPrompts('./plugins/enhance')`
+   For a single file: `a.analyzePrompt('./path/to/file.md')`
+
+2. **Parse Results** - The analyzer returns JSON with `summary` and `findings`
+3. **Filter** - Apply certainty filtering based on --verbose flag
+4. **Report** - Format findings as markdown output
+5. **Fix** - If --fix flag, apply auto-fixes from findings
+
+The JavaScript analyzer (`lib/enhance/prompt-analyzer.js`) implements all detection patterns including AST-based code validation. The patterns below are reference documentation.
 
 ---
 

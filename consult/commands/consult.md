@@ -1,0 +1,155 @@
+---
+name: consult
+description: Consult another AI CLI tool for a second opinion. Use when you want to cross-check ideas, get alternative approaches, or validate decisions with Gemini, Codex, Claude, OpenCode, or Copilot.
+codex-description: 'Use when user asks to "consult gemini", "ask codex", "get second opinion", "cross-check with claude", "consult another AI", "ask opencode", "copilot opinion". Queries another AI CLI tool and returns the response.'
+argument-hint: "[question] [--tool=gemini|codex|claude|opencode|copilot] [--effort=low|medium|high|max] [--model=MODEL] [--context=diff|file=PATH|none] [--continue]"
+allowed-tools: Task, Read, Write, Glob, AskUserQuestion
+---
+
+# /consult - Cross-Tool AI Consultation
+
+Get a second opinion from another AI CLI tool without leaving your current session.
+
+## Constraints
+
+- NEVER expose API keys in commands or output
+- NEVER run with permission-bypassing flags (`--dangerously-skip-permissions`, `bypassPermissions`)
+- MUST use safe-mode defaults (`-a suggest` for Codex, `--allowedTools "Read,Glob,Grep"` for Claude)
+- MUST enforce 120s timeout on all tool executions
+- MUST validate `--tool` against allow-list: gemini, codex, claude, opencode, copilot (reject all others)
+- MUST validate `--context=file=PATH` is within the project directory (reject absolute paths outside cwd)
+- MUST quote all user-provided values in shell commands to prevent injection
+- NEVER execute tools the user has not explicitly requested
+
+## Arguments
+
+Parse from $ARGUMENTS:
+
+- **question**: What to ask the consulted tool (required)
+- **--tool**: Target tool: `gemini`, `codex`, `claude`, `opencode`, `copilot` (interactive picker if omitted)
+- **--effort**: Thinking effort: `low`, `medium` (default), `high`, `max`
+- **--model**: Specific model name (overrides effort-based selection). Free text.
+- **--context**: Auto-include context: `diff` (git diff), `file=PATH` (attach specific file), `none` (default)
+- **--continue**: Continue last consultation session, or `--continue=SESSION_ID` for specific session
+
+## Execution
+
+### Phase 1: Parse Arguments
+
+Extract from `$ARGUMENTS`:
+- `--tool` flag for routing (or null for interactive picker)
+- `--continue` flag for session flow
+- Everything else passed through to the agent/skill
+
+If no question and no `--continue`:
+```
+[ERROR] Usage: /consult "your question" [--tool=gemini|codex|claude|opencode|copilot] [--effort=low|medium|high|max]
+```
+
+### Phase 2: Detect Available Tools
+
+If `--tool` not specified, detect which tools are installed and let user pick.
+
+Run cross-platform detection:
+- Windows: `where.exe <tool> 2>nul`
+- Unix: `which <tool> 2>/dev/null`
+
+If no `--tool` flag, use AskUserQuestion with only installed tools:
+
+Tool options for picker (labels must be under 30 chars for OpenCode):
+- **Claude**: Deep code reasoning
+- **Gemini**: Fast multimodal analysis
+- **Codex**: Agentic coding
+- **OpenCode**: Flexible model choice
+- **Copilot**: GitHub-integrated AI
+
+### Phase 3: Handle Continue Session
+
+If `--continue` is set, load last session state:
+
+```javascript
+// Reference implementation - compute session file path
+// Actual path is platform-dependent. See consult skill for details.
+const stateDir = process.env.AI_STATE_DIR || '.claude';
+const sessionFile = `${stateDir}/consult/last-session.json`;
+// Load saved tool + session_id from file
+```
+
+### Phase 4: Spawn Consult Agent
+
+Spawn `consult:consult-agent` (sonnet - orchestration only, no complex reasoning needed):
+
+```javascript
+// Reference implementation - use Task tool to spawn agent
+Task({
+  subagent_type: "consult:consult-agent",
+  model: "sonnet",
+  prompt: `Consult another AI tool.
+
+Tool: ${selectedTool}
+Question: ${question}
+Effort: ${effort}
+Model: ${model || '(auto from effort)'}
+Context: ${context}
+Continue Session: ${continueSession}
+Session File: ${sessionFile}
+
+Execute the consultation and return the result between === CONSULT_RESULT === markers.`
+});
+```
+
+### Phase 5: Present Results
+
+Parse the structured JSON from between `=== CONSULT_RESULT ===` and `=== END_RESULT ===` markers.
+
+Display:
+
+```markdown
+[OK] Consultation Complete
+
+**Tool**: {tool} ({model})
+**Effort**: {effort}
+**Duration**: {duration_ms}ms
+
+### Response
+
+{formatted response}
+
+### Session
+
+{session_id if continuable, with hint: "Use --continue to resume this session"}
+```
+
+On failure: `[ERROR] Consultation Failed: {error message}`
+
+## Error Handling
+
+| Error | Action |
+|-------|--------|
+| No question provided | Show usage help |
+| Tool not installed | Show install instructions for that tool |
+| Tool execution fails | Show error, suggest alternative tool |
+| Timeout (>120s) | Kill process, show partial output if any |
+| No tools available | Suggest installing at least one tool |
+| Session not found | Warn, start fresh consultation |
+
+## Success Criteria
+
+- Target tool detected and verified as installed
+- CLI command executed within 120s timeout
+- Response parsed from the tool's output format
+- Results presented in structured markdown with status markers
+- Session state saved for continuable tools (Claude, Gemini)
+- Errors produce actionable messages with install instructions
+
+## Example Usage
+
+```bash
+/consult "Is this the right approach for error handling?" --tool=gemini --effort=high
+/consult "Review this function for performance issues" --tool=codex
+/consult "What alternative patterns would you suggest?" --tool=claude --effort=max
+/consult "Suggest improvements" --tool=opencode --model=github-copilot/claude-opus-4-6
+/consult "Continue from where we left off" --continue
+/consult "Explain this error" --context=diff --tool=gemini
+/consult "Review this file" --context=file=src/index.js --tool=claude
+```

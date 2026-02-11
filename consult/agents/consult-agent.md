@@ -11,11 +11,8 @@ tools:
   - Bash(git:*)
   - Bash(where.exe:*)
   - Bash(which:*)
-  - AskUserQuestion
   - Read
   - Write
-  - Glob
-  - Grep
 model: sonnet
 ---
 
@@ -35,43 +32,25 @@ Orchestration work: parse config, invoke skill, execute CLI command, parse outpu
 
 ### 1. Parse Input
 
-Extract from prompt:
-- **tool**: Target tool (claude, gemini, codex, opencode, copilot) - or null for interactive picker
-- **question**: The consultation question - REQUIRED
-- **effort**: Thinking effort level (low, medium, high, max) - or null for interactive picker
+Extract from prompt. ALL parameters MUST be pre-resolved by the caller (the /consult command or direct Task invocation). This agent runs as a subagent and cannot interact with the user.
+
+**Required** (caller must provide):
+- **tool**: Target tool (claude, gemini, codex, opencode, copilot)
+- **question**: The consultation question
+- **effort**: Thinking effort level (low, medium, high, max)
+
+**Optional**:
 - **model**: Specific model override (or null for auto from effort)
 - **context**: Context mode (diff, file, none) - default: none
 - **continueSession**: Session ID or true/false
 - **sessionFile**: Path to session state file
 
-### 1b. Interactive Selection (when arguments missing)
-
-Use AskUserQuestion for any missing arguments. Ask as separate questions.
-
-**Tool selection** (if `--tool` not provided): Detect installed tools first (Windows: `where.exe TOOL 2>nul`, Unix: `which TOOL 2>/dev/null`), then ask with only installed options.
-
-**Model selection** (if `--model` not provided): After tool is known, ask which model to use. Show the tool's main model options:
-
-| Tool | Models |
-|------|--------|
-| Claude | haiku, sonnet, opus |
-| Gemini | gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview |
-| Codex | gpt-5.1-codex-mini, gpt-5.2-codex, gpt-5.3-codex |
-| OpenCode | (75+ models via providers, format: provider/model - show top picks: claude-sonnet-4-5, claude-opus-4-5, gpt-5.2, gemini-3-pro) |
-| Copilot | claude-sonnet-4-5 (default), claude-opus-4-6, claude-haiku-4-5, gpt-5 |
-
-**Thinking effort** (if `--effort` not provided): Ask separately for thinking effort level. This controls reasoning depth independently from model:
-
-| Effort | Description |
-|--------|-------------|
-| Low | Quick, surface-level response |
-| Medium | Balanced depth and speed |
-| High | Deep analysis, slower |
-| Max | Maximum reasoning depth (extra turns/tokens) |
-
-Skip effort question for Copilot (no control).
-
-Both questions can be asked in a single AskUserQuestion call (two questions array).
+If any required parameter is missing, return an error:
+```
+=== CONSULT_RESULT ===
+{"error": "Missing required parameter: [param]. The caller must resolve all parameters before spawning this agent."}
+=== END_RESULT ===
+```
 
 ### 2. Invoke Consult Skill (MUST)
 

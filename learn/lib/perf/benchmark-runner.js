@@ -6,7 +6,7 @@
 
 const { execFileSync } = require('child_process');
 const { validateBaseline } = require('./schemas');
-const { parseCommand } = require('../utils/command-parser');
+const { parseCommand, resolveExecutableForPlatform } = require('../utils/command-parser');
 
 const DEFAULT_MIN_DURATION = 60;
 const BINARY_SEARCH_MIN_DURATION = 30;
@@ -57,6 +57,7 @@ function runBenchmark(command, options = {}) {
   }
 
   const parsedCommand = parseCommand(command, 'Benchmark command');
+  const executable = resolveExecutableForPlatform(parsedCommand.executable);
   const normalized = normalizeBenchmarkOptions(options);
   const setDurationEnv = options.setDurationEnv !== false;
   const env = {
@@ -73,7 +74,7 @@ function runBenchmark(command, options = {}) {
   const start = Date.now();
   let output;
   try {
-    output = execFileSync(parsedCommand.executable, parsedCommand.args, {
+    output = execFileSync(executable, parsedCommand.args, {
       stdio: 'pipe',
       encoding: 'utf8',
       env,

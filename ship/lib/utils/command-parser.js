@@ -6,6 +6,8 @@
 
 'use strict';
 
+const WINDOWS_CMD_SHIMS = new Set(['npm', 'npx', 'pnpm', 'yarn', 'yarnpkg', 'corepack']);
+
 function assertValidToken(value, label) {
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`${label} must be a non-empty string`);
@@ -13,6 +15,26 @@ function assertValidToken(value, label) {
   if (value.includes('\0')) {
     throw new Error(`${label} contains invalid null byte`);
   }
+}
+
+function resolveExecutableForPlatform(executable, platform = process.platform) {
+  assertValidToken(executable, 'Executable');
+
+  if (platform !== 'win32') {
+    return executable;
+  }
+
+  if (executable.includes('/') || executable.includes('\\')) {
+    return executable;
+  }
+
+  if (/\.[a-zA-Z0-9]+$/.test(executable)) {
+    return executable;
+  }
+
+  return WINDOWS_CMD_SHIMS.has(executable.toLowerCase())
+    ? `${executable}.cmd`
+    : executable;
 }
 
 function tokenize(command) {
@@ -115,5 +137,6 @@ function parseCommand(command, label = 'Command') {
 }
 
 module.exports = {
-  parseCommand
+  parseCommand,
+  resolveExecutableForPlatform
 };

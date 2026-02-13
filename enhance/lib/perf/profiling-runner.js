@@ -6,7 +6,7 @@
 
 const { execFileSync } = require('child_process');
 const profilers = require('./profilers');
-const { parseCommand } = require('../utils/command-parser');
+const { parseCommand, resolveExecutableForPlatform } = require('../utils/command-parser');
 
 /**
  * Run a profiling command and return artifacts/hotspots metadata.
@@ -32,12 +32,13 @@ function runProfiling(options = {}) {
     ...(options.profileOptions || {})
   });
   const parsedCommand = parseCommand(command, 'Profiling command');
+  const executable = resolveExecutableForPlatform(parsedCommand.executable);
   const env = {
     ...process.env,
     ...(options.env || {})
   };
   try {
-    execFileSync(parsedCommand.executable, parsedCommand.args, {
+    execFileSync(executable, parsedCommand.args, {
       stdio: 'pipe',
       env,
       cwd: repoPath,

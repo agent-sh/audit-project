@@ -70,7 +70,7 @@ delivery-validator (YOU ARE HERE)
 **MUST NOT do:**
 - Create PRs
 - Push to remote
-- Invoke /ship
+- Invoke ship:ship
 - Skip sync-docs:sync-docs-agent
 
 ## State Updates

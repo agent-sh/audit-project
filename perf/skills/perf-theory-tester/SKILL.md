@@ -1,7 +1,7 @@
 ---
 name: perf-theory-tester
 description: "Use when running controlled perf experiments to validate hypotheses."
-version: 5.0.0
+version: 5.0.1
 ---
 
 # perf-theory-tester

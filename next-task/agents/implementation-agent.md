@@ -395,7 +395,7 @@ implementation-agent (YOU ARE HERE)
         ↓
    sync-docs:sync-docs-agent
         ↓
-   /ship command (creates PR)
+   ship:ship command (creates PR)
 ```
 
 ### Required Handoff
@@ -438,7 +438,7 @@ ${gitLog}
    → Phase 9 review loop
    → delivery-validator
    → sync-docs:sync-docs-agent
-   → /ship
+   → ship:ship
 ```
 
 ## Quality Checklist

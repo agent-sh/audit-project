@@ -212,8 +212,7 @@ The results of the consultation are:
 {response}
 ```
 
-For continuable tools with a session_id (Claude, Gemini, OpenCode), display: `Session: {session_id} - use /consult --continue to resume`
-For Codex (context-based continuation, no session_id), display: `Use /consult --continue to continue this conversation (prior context will be prepended)`
+For continuable tools (Claude, Gemini, Codex, OpenCode), display: `Session: {session_id} - use /consult --continue to resume`
 
 Save session state for continuable tools (Claude, Gemini, Codex, OpenCode) to `{AI_STATE_DIR}/consult/last-session.json`.
 

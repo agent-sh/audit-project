@@ -1,7 +1,7 @@
 ---
 name: enhance-prompts
 description: "Use when improving general prompts for structure, examples, and constraints."
-version: 5.0.2
+version: 5.0.3
 argument-hint: "[path] [--fix]"
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: enhance-plugins
 description: "Use when analyzing plugin structures, MCP tools, and plugin security patterns."
-version: 5.0.2
+version: 5.0.3
 argument-hint: "[path] [--fix]"
 ---
 

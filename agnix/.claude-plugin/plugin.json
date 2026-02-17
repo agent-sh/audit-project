@@ -1,6 +1,6 @@
 {
   "name": "agnix",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "description": "Lint agent configurations before they break your workflow. Validates Skills, Hooks, MCP, Memory, Plugins.",
   "author": {
     "name": "Avi Fenesh",

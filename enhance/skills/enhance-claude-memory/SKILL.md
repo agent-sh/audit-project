@@ -1,7 +1,7 @@
 ---
 name: enhance-claude-memory
 description: "Use when improving CLAUDE.md or AGENTS.md project memory files."
-version: 5.0.2
+version: 5.0.3
 ---
 
 # enhance-claude-memory

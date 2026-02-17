@@ -1,7 +1,7 @@
 ---
 name: validate-delivery
 description: "Use when user asks to \"validate delivery\", \"check readiness\", or \"verify completion\". Runs tests, build, and requirement checks with pass/fail instructions."
-version: 5.0.2
+version: 5.0.3
 ---
 
 # validate-delivery

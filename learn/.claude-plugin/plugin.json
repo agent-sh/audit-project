@@ -1,6 +1,6 @@
 {
   "name": "learn",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "description": "Research any topic online and create comprehensive learning guides with RAG-optimized indexes",
   "author": {
     "name": "Avi Fenesh",

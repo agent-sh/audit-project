@@ -1,7 +1,7 @@
 ---
 name: consult
 description: "Cross-tool AI consultation. Use when user asks to 'consult gemini', 'ask codex', 'get second opinion', 'cross-check with claude', 'consult another AI', 'ask opencode', 'copilot opinion', or wants a second opinion from a different AI tool."
-version: 5.0.2
+version: 5.0.3
 argument-hint: "[question] [--tool] [--effort] [--model] [--context] [--continue]"
 ---
 
@@ -75,9 +75,12 @@ Models: gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-p
 ### Codex
 
 ```
-Command: codex -q "QUESTION" --json -m "MODEL" -a suggest -c model_reasoning_effort="LEVEL"
-Session resume: codex resume "SESSION_ID"
+Command: codex exec "QUESTION" --json -m "MODEL" -a suggest -c model_reasoning_effort="LEVEL"
+Session resume: codex exec resume SESSION_ID "QUESTION" --json
+Session resume (latest): codex exec resume --last "QUESTION" --json
 ```
+
+Note: `codex exec` is the non-interactive/headless mode. There is no `-q` flag. The TUI mode is `codex` (no subcommand).
 
 Models: gpt-5.1-codex-mini, gpt-5-codex, gpt-5.1-codex, gpt-5.2-codex, gpt-5.3-codex, gpt-5.1-codex-max
 
@@ -90,7 +93,7 @@ Models: gpt-5.1-codex-mini, gpt-5-codex, gpt-5.1-codex, gpt-5.2-codex, gpt-5.3-c
 
 **Parse output**: `JSON.parse(stdout).message` or raw text
 **Session ID**: Codex prints a resume hint at session end (e.g., `codex resume SESSION_ID`). Extract the session ID from stdout or from `JSON.parse(stdout).session_id` if available.
-**Continuable**: Yes, but interactive only. Sessions are stored as JSONL rollout files at `~/.codex/sessions/`. The `codex resume SESSION_ID` subcommand resumes in TUI mode -- it does not support `-q` for non-interactive use. For non-interactive continuation, prepend prior conversation context to the new question text instead.
+**Continuable**: Yes. Sessions are stored as JSONL rollout files at `~/.codex/sessions/`. Non-interactive resume uses `codex exec resume SESSION_ID "follow-up prompt" --json`. Use `--last` instead of a session ID to resume the most recent session.
 
 ### OpenCode
 
@@ -155,7 +158,7 @@ Use the command template from the provider's configuration section. Substitute Q
 
 If continuing a session:
 - **Claude or Gemini**: append `--resume SESSION_ID` to the command.
-- **Codex**: no non-interactive resume flag exists. Prepend the prior Q&A context to the new question text before passing to `codex -q`.
+- **Codex**: use `codex exec resume SESSION_ID "QUESTION" --json` instead of the standard command. Use `--last` instead of a session ID for the most recent session.
 - **OpenCode**: append `--session SESSION_ID` to the command. If no session_id is saved, use `--continue` instead (resumes most recent session).
 If OpenCode at max effort: append `--thinking`.
 
@@ -184,8 +187,9 @@ User-provided question text MUST NOT be interpolated into shell command strings.
 | Claude (resume) | `claude -p - --output-format json --model "MODEL" --max-turns TURNS --allowedTools "Read,Glob,Grep" --resume "SESSION_ID" < "{AI_STATE_DIR}/consult/question.tmp"` |
 | Gemini | `gemini -p - --output-format json -m "MODEL" < "{AI_STATE_DIR}/consult/question.tmp"` |
 | Gemini (resume) | `gemini -p - --output-format json -m "MODEL" --resume "SESSION_ID" < "{AI_STATE_DIR}/consult/question.tmp"` |
-| Codex | `codex -q "$(cat "{AI_STATE_DIR}/consult/question.tmp")" --json -m "MODEL" -a suggest` (Codex lacks stdin mode -- cat reads from platform-controlled path, not user input) |
-| Codex (continue) | No non-interactive resume. Prepend prior context to question, then use standard Codex command above. |
+| Codex | `codex exec "$(cat "{AI_STATE_DIR}/consult/question.tmp")" --json -m "MODEL" -a suggest` (Codex exec lacks stdin mode -- cat reads from platform-controlled path, not user input) |
+| Codex (resume) | `codex exec resume SESSION_ID "$(cat "{AI_STATE_DIR}/consult/question.tmp")" --json -m "MODEL"` |
+| Codex (resume latest) | `codex exec resume --last "$(cat "{AI_STATE_DIR}/consult/question.tmp")" --json -m "MODEL"` |
 | OpenCode | `opencode run - --format json --model "MODEL" --variant "VARIANT" < "{AI_STATE_DIR}/consult/question.tmp"` |
 | OpenCode (resume by ID) | `opencode run - --format json --model "MODEL" --variant "VARIANT" --session "SESSION_ID" < "{AI_STATE_DIR}/consult/question.tmp"` |
 | OpenCode (resume latest) | `opencode run - --format json --model "MODEL" --variant "VARIANT" --continue < "{AI_STATE_DIR}/consult/question.tmp"` |

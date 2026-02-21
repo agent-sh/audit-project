@@ -1,0 +1,9 @@
+{
+  "agents": [],
+  "skills": [],
+  "commands": [
+    "audit-project-agents",
+    "audit-project-github",
+    "audit-project"
+  ]
+}

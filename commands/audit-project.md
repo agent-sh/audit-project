@@ -79,6 +79,29 @@ else
 fi
 ```
 
+### Repo Intelligence (Optional)
+
+Gather change-frequency signals from agent-analyzer if available. Files with high churn but no co-changing test file are highest-risk for review.
+
+```javascript
+// Gather repo-intel test-gap signals if available
+const fs = require('fs');
+const path = require('path');
+let testGaps = [];
+try {
+  const { binary } = require('@agentsys/lib');
+  const cwd = process.cwd();
+  const stateDir = ['.claude', '.opencode', '.codex'].find(d => fs.existsSync(path.join(cwd, d))) || '.claude';
+  const mapFile = path.join(cwd, stateDir, 'repo-intel.json');
+  if (fs.existsSync(mapFile)) {
+    const json = binary.runAnalyzer(['repo-intel', 'query', 'test-gaps', '--top', '20', '--map-file', mapFile, cwd]);
+    testGaps = JSON.parse(json);
+  }
+} catch (e) { /* repo-intel not available, proceed without it */ }
+```
+
+If `testGaps` is non-empty, pass it to Phase 2 agents as priority context. These files should receive extra scrutiny during review.
+
 ### Agent Selection
 
 **Always Active:**

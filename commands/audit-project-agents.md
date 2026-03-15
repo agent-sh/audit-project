@@ -108,10 +108,16 @@ Use Task tool to launch agents in parallel:
 ```javascript
 const agents = [];
 
+// Format test-gap priority context if available (from Phase 1 repo-intel)
+const testGapContext = Array.isArray(testGaps) && testGaps.length > 0
+  ? `\n\nPriority files (high change frequency, no test coverage coupling - review these first):\n${testGaps.map(g => `- ${g.path} (${g.changes} changes, ${g.bugFixes} bug fixes, ${g.recentChanges} recent)`).join('\n')}`
+  : '';
+
 const baseReviewPrompt = (passId, role, focus) => `Role: ${role}.
 
 Scope: ${SCOPE}
 Framework: ${FRAMEWORK}
+${testGapContext}
 
 Focus on:
 ${focus.map(item => `- ${item}`).join('\n')}

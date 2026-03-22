@@ -84,23 +84,41 @@ fi
 Gather change-frequency signals from agent-analyzer if available. Files with high churn but no co-changing test file are highest-risk for review.
 
 ```javascript
-// Gather repo-intel test-gap signals if available
+// Gather repo-intel signals if available
 const fs = require('fs');
 const path = require('path');
 let testGaps = [];
+let painspots = [];
+let bugspots = [];
 try {
   const { binary } = require('@agentsys/lib');
   const cwd = process.cwd();
   const stateDir = ['.claude', '.opencode', '.codex'].find(d => fs.existsSync(path.join(cwd, d))) || '.claude';
   const mapFile = path.join(cwd, stateDir, 'repo-intel.json');
   if (fs.existsSync(mapFile)) {
-    const json = binary.runAnalyzer(['repo-intel', 'query', 'test-gaps', '--top', '20', '--map-file', mapFile, cwd]);
-    testGaps = JSON.parse(json);
+    const json1 = binary.runAnalyzer(['repo-intel', 'query', 'test-gaps', '--top', '20', '--map-file', mapFile, cwd]);
+    testGaps = JSON.parse(json1);
+    const json2 = binary.runAnalyzer(['repo-intel', 'query', 'painspots', '--top', '10', '--map-file', mapFile, cwd]);
+    painspots = JSON.parse(json2);
+    const json3 = binary.runAnalyzer(['repo-intel', 'query', 'bugspots', '--top', '10', '--map-file', mapFile, cwd]);
+    bugspots = JSON.parse(json3);
   }
 } catch (e) { /* repo-intel not available, proceed without it */ }
 ```
 
-If `testGaps` is non-empty, pass it to Phase 2 agents as priority context. These files should receive extra scrutiny during review.
+If these arrays are non-empty, pass them to Phase 2 agents as priority context:
+
+- **testGaps**: High-churn files with no co-changing test file - highest regression risk.
+- **painspots**: Files ranked by `hotspot × complexity × bug density` - review most carefully.
+- **bugspots**: Files with high bug-fix commit rate - fragile code, recommend extra test coverage.
+
+```
+Pain spots (files needing most scrutiny):
+${painspots.map(p => `- \`${p.path}\` (pain=${p.painScore?.toFixed(2)}, bugRate=${p.bugFixRate?.toFixed(2)}, complexity=${p.complexityMax})`).join('\n') || 'None'}
+
+High bug-fix density (review carefully):
+${bugspots.map(b => `- \`${b.path}\` (${Math.round((b.bugFixRate || 0) * 100)}% of changes are bug fixes)`).join('\n') || 'None'}
+```
 
 ### Agent Selection
 

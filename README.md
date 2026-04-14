@@ -90,7 +90,7 @@ When [agent-analyzer](https://github.com/agent-sh/agent-analyzer) repo-intel dat
 
 - [enhance](https://github.com/agent-sh/enhance) - Plugin structure and config analysis
 - [perf](https://github.com/agent-sh/perf) - Dedicated performance investigation with profiling
-- [repo-map](https://github.com/agent-sh/repo-map) - AST-based repository map for deeper code understanding
+- [repo-intel](https://github.com/agent-sh/repo-intel) - Unified static analysis (git history, AST symbols, doc-code sync)
 - [ship](https://github.com/agent-sh/ship) - PR workflow from commit to production
 
 ## License

@@ -1,6 +1,6 @@
 ---
 name: audit-project
-description: "Use when user asks to 'review my code', 'audit the codebase', 'run code review', 'check for issues', 'find bugs', 'security review', 'performance review', or wants multi-agent iterative review. Spawns specialized role-based reviewers (security, performance, architecture, database, API, frontend, backend, DevOps, test-quality, code-quality) and loops until critical/high issues are resolved."
+description: "Use when user asks to 'review my code', 'audit the codebase', 'run code review', 'check for issues', 'find bugs', 'security review', 'performance review', or wants multi-agent iterative review. Spawns role-based reviewers (code-quality-reviewer, security-expert, performance-engineer, test-quality-guardian, architecture-reviewer, database-specialist, api-designer, frontend-specialist, backend-specialist, devops-reviewer) and loops until critical/high issues are resolved."
 argument-hint: "[scope] [--recent] [--domain AGENT] [--quick] [--create-tech-debt] [--resume]"
 ---
 
@@ -29,7 +29,7 @@ Multi-agent iterative code review. Spawn up to 10 specialized role-based reviewe
 The skill delegates to the `/audit-project` command, which orchestrates the full 8-phase workflow:
 
 1. **Context & Agent Selection** - Detect project type, framework, and pick which reviewers apply
-2. **Multi-Agent Review** - Spawn role-based reviewers in parallel (code-quality, security, performance, architecture, database, API, frontend, backend, DevOps, test-quality)
+2. **Multi-Agent Review** - Spawn role-based reviewers in parallel (code-quality-reviewer, security-expert, performance-engineer, architecture-reviewer, database-specialist, api-designer, frontend-specialist, backend-specialist, devops-reviewer, test-quality-guardian)
 3. **Tech Debt Extraction** - Low-severity findings feed `TECHNICAL_DEBT.md` instead of the fix queue
 4. **Fixes** - Apply critical and high findings
 5. **Verification** - Re-run affected reviewers on fixed code

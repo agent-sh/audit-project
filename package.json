@@ -19,5 +19,8 @@
     "multi-agent",
     "framework-specific",
     "iterative"
-  ]
+  ],
+  "scripts": {
+    "test": "node --test tests/**/*.test.js"
+  }
 }

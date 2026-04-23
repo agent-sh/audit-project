@@ -40,7 +40,7 @@ Otherwise create a new queue file. See `audit-project-agents.md` for queue handl
 
 ```bash
 # Get plugin root using Node.js helper
-PLUGIN_ROOT=$(node -e "const { getPluginRoot } = require('@agentsys/lib/cross-platform'); const root = getPluginRoot('audit-project'); if (!root) { console.error('Error: Could not locate audit-project plugin root'); process.exit(1); } console.log(root);")
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(node -e "const { getPluginRoot } = require(require('path').join(process.env.HOME || process.env.USERPROFILE, '.claude/plugins/marketplaces/agentsys/lib/cross-platform')); const r = getPluginRoot('audit-project'); if (!r) { console.error('Error: Could not locate audit-project plugin root'); process.exit(1); } console.log(r);")}"
 PLATFORM=$(node "$PLUGIN_ROOT/lib/platform/detect-platform.js")
 TOOLS=$(node "$PLUGIN_ROOT/lib/platform/verify-tools.js")
 
@@ -91,19 +91,21 @@ let testGaps = [];
 let painspots = [];
 let bugspots = [];
 try {
-  const { binary } = require('@agentsys/lib');
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
+  if (!pluginRoot) throw new Error('CLAUDE_PLUGIN_ROOT not set');
+  const { repoIntel } = require(`${pluginRoot}/lib/agentsys`).get();
+  if (!repoIntel) throw new Error('agentsys is older than v5.8.6 (typed repo-intel queries unavailable) - run `/plugin marketplace update`');
   const cwd = process.cwd();
   const stateDir = ['.claude', '.opencode', '.codex'].find(d => fs.existsSync(path.join(cwd, d))) || '.claude';
   const mapFile = path.join(cwd, stateDir, 'repo-intel.json');
   if (fs.existsSync(mapFile)) {
-    const json1 = binary.runAnalyzer(['repo-intel', 'query', 'test-gaps', '--top', '20', '--map-file', mapFile, cwd]);
-    testGaps = JSON.parse(json1);
-    const json2 = binary.runAnalyzer(['repo-intel', 'query', 'painspots', '--top', '10', '--map-file', mapFile, cwd]);
-    painspots = JSON.parse(json2);
-    const json3 = binary.runAnalyzer(['repo-intel', 'query', 'bugspots', '--top', '10', '--map-file', mapFile, cwd]);
-    bugspots = JSON.parse(json3);
+    testGaps = repoIntel.queries.testGaps(cwd, { limit: 20 });
+    painspots = repoIntel.queries.painspots(cwd, { limit: 10 });
+    bugspots = repoIntel.queries.bugspots(cwd, { limit: 10 });
   }
-} catch (e) { /* repo-intel not available, proceed without it */ }
+} catch (e) {
+  console.error(`[INFO] repo-intel signals skipped: ${e.message}`);
+}
 ```
 
 If these arrays are non-empty, pass them to Phase 2 agents as priority context:

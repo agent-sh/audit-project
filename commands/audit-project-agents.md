@@ -113,14 +113,14 @@ const testGapContext = Array.isArray(testGaps) && testGaps.length > 0
   ? `\n\nPriority files (high change frequency, no test coverage coupling - review these first):\n${testGaps.map(g => `- ${g.path} (${g.changes} changes, ${g.bugFixes} bug fixes, ${g.recentChanges} recent)`).join('\n')}`
   : '';
 
-// Slop concentration per file (count of mechanical findings). The
-// code-quality-reviewer gets the top-5 by concentration as priority
-// targets; files with stale-suppression findings are explicitly
-// called out so reviewers don't re-flag the same symbols.
+// Per-role analyzer context. Each branch depends on an independent
+// data source (code-quality reads slopFixes, architecture reads
+// slopTargets, security/devops read entryPoints), so we check only
+// the relevant array in each branch — a missing slopFixes must NOT
+// suppress slopTargets or entryPoints rendering.
 function slopContextFor(passId) {
-  if (!Array.isArray(slopFixes) || slopFixes.length === 0) return '';
-
   if (passId === 'code-quality') {
+    if (!Array.isArray(slopFixes) || slopFixes.length === 0) return '';
     const counts = {};
     const categoriesPerFile = {};
     for (const f of slopFixes) {
@@ -130,13 +130,15 @@ function slopContextFor(passId) {
       categoriesPerFile[p] = categoriesPerFile[p] || new Set();
       categoriesPerFile[p].add(f.category);
     }
+    // Threshold 3+ and top-5 match the routing-rule table in
+    // audit-project.md ("3+ findings, top 5 by concentration").
     const hot = Object.entries(counts)
-      .filter(([, n]) => n >= 2)
+      .filter(([, n]) => n >= 3)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
+      .slice(0, 5);
     if (hot.length === 0) return '';
     const lines = hot.map(([p, n]) => `- ${p}: ${n} findings (${[...categoriesPerFile[p]].join(', ')})`);
-    return `\n\nPre-computed slop findings (mechanical — do NOT re-flag these; build on them):\n${lines.join('\n')}`;
+    return `\n\nPre-computed slop findings (mechanical - do NOT re-flag these; build on them):\n${lines.join('\n')}`;
   }
 
   if (passId === 'architecture') {
@@ -145,9 +147,9 @@ function slopContextFor(passId) {
     if (opus.length === 0) return '';
     const lines = opus.map(t => {
       const loc = t.kind === 'area' ? `[${(t.paths||[]).length} files]` : t.path;
-      return `- ${loc} — ${t.suspect}: ${t.why}`;
+      return `- ${loc} - ${t.suspect}: ${t.why}`;
     });
-    return `\n\nCross-file slop clusters (Opus tier — structural issues to examine):\n${lines.join('\n')}`;
+    return `\n\nCross-file slop clusters (Opus tier - structural issues to examine):\n${lines.join('\n')}`;
   }
 
   if (passId === 'security' || passId === 'devops') {

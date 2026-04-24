@@ -109,20 +109,25 @@ try {
     // tests, passthrough wrappers, always-true conditions, commented-
     // out code, orphan exports, stale suppressions). Route the
     // code-quality-reviewer at files with concentrated slop first.
+    // asArray: coerce any non-array result (an analyzer error object,
+    // a missing nested property) to [] so the downstream for-of
+    // loops never throw. Same guard the sync-docs and drift-detect
+    // analyzer-queries collectors use.
+    const asArray = (v) => Array.isArray(v) ? v : [];
     const slopRaw = JSON.parse(binary.runAnalyzer(['repo-intel', 'query', 'slop-fixes', '--map-file', mapFile, cwd]));
-    slopFixes = Array.isArray(slopRaw) ? slopRaw : (slopRaw?.fixes || []);
+    slopFixes = Array.isArray(slopRaw) ? slopRaw : asArray(slopRaw?.fixes);
     // Slop-targets: Opus-tier cross-file clusters (wrapper towers,
     // single-impl traits, cliche name clusters, high-bug communities).
     // These are exactly the signals architecture-reviewer should focus
     // on — they describe structural issues per-file scans miss.
     const targetsRaw = JSON.parse(binary.runAnalyzer(['repo-intel', 'query', 'slop-targets', '--top', '30', '--map-file', mapFile, cwd]));
-    slopTargets = Array.isArray(targetsRaw) ? targetsRaw : (targetsRaw?.targets || []);
+    slopTargets = Array.isArray(targetsRaw) ? targetsRaw : asArray(targetsRaw?.targets);
     // Entry-points: execution surfaces (Cargo [[bin]], main(),
     // framework configs). Used by devops-reviewer to understand the
     // CI/CD surface and by security-expert to identify exposed
     // attack surfaces.
     const epRaw = JSON.parse(binary.runAnalyzer(['repo-intel', 'query', 'entry-points', '--map-file', mapFile, cwd]));
-    entryPoints = Array.isArray(epRaw) ? epRaw : (epRaw?.entryPoints || []);
+    entryPoints = Array.isArray(epRaw) ? epRaw : asArray(epRaw?.entryPoints);
   }
 } catch (e) { /* repo-intel not available, proceed without it */ }
 ```
@@ -152,14 +157,14 @@ ${painspots.map(p => `- \`${p.path}\` (pain=${p.painScore?.toFixed(2)}, bugRate=
 High bug-fix density (review carefully):
 ${bugspots.map(b => `- \`${b.path}\` (${Math.round((b.bugFixRate || 0) * 100)}% of changes are bug fixes)`).join('\n') || 'None'}
 
-Slop concentration (files with 3+ mechanical findings — code-quality priority):
+Slop concentration (files with 3+ mechanical findings - code-quality priority, top 5):
 ${(() => {
   const counts = {};
   for (const f of slopFixes) {
     const p = f.action?.path;
     if (p) counts[p] = (counts[p] || 0) + 1;
   }
-  const hot = Object.entries(counts).filter(([,n]) => n >= 3).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const hot = Object.entries(counts).filter(([,n]) => n >= 3).sort((a,b) => b[1]-a[1]).slice(0, 5);
   return hot.length ? hot.map(([p,n]) => `- \`${p}\` (${n} findings)`).join('\n') : 'None';
 })()}
 

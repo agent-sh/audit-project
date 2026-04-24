@@ -113,11 +113,59 @@ const testGapContext = Array.isArray(testGaps) && testGaps.length > 0
   ? `\n\nPriority files (high change frequency, no test coverage coupling - review these first):\n${testGaps.map(g => `- ${g.path} (${g.changes} changes, ${g.bugFixes} bug fixes, ${g.recentChanges} recent)`).join('\n')}`
   : '';
 
+// Per-role analyzer context. Each branch depends on an independent
+// data source (code-quality reads slopFixes, architecture reads
+// slopTargets, security/devops read entryPoints), so we check only
+// the relevant array in each branch — a missing slopFixes must NOT
+// suppress slopTargets or entryPoints rendering.
+function slopContextFor(passId) {
+  if (passId === 'code-quality') {
+    if (!Array.isArray(slopFixes) || slopFixes.length === 0) return '';
+    const counts = {};
+    const categoriesPerFile = {};
+    for (const f of slopFixes) {
+      const p = f.action?.path;
+      if (!p) continue;
+      counts[p] = (counts[p] || 0) + 1;
+      categoriesPerFile[p] = categoriesPerFile[p] || new Set();
+      categoriesPerFile[p].add(f.category);
+    }
+    // Threshold 3+ and top-5 match the routing-rule table in
+    // audit-project.md ("3+ findings, top 5 by concentration").
+    const hot = Object.entries(counts)
+      .filter(([, n]) => n >= 3)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    if (hot.length === 0) return '';
+    const lines = hot.map(([p, n]) => `- ${p}: ${n} findings (${[...categoriesPerFile[p]].join(', ')})`);
+    return `\n\nPre-computed slop findings (mechanical - do NOT re-flag these; build on them):\n${lines.join('\n')}`;
+  }
+
+  if (passId === 'architecture') {
+    if (!Array.isArray(slopTargets) || slopTargets.length === 0) return '';
+    const opus = slopTargets.filter(t => t.tier === 'opus').slice(0, 10);
+    if (opus.length === 0) return '';
+    const lines = opus.map(t => {
+      const loc = t.kind === 'area' ? `[${(t.paths||[]).length} files]` : t.path;
+      return `- ${loc} - ${t.suspect}: ${t.why}`;
+    });
+    return `\n\nCross-file slop clusters (Opus tier - structural issues to examine):\n${lines.join('\n')}`;
+  }
+
+  if (passId === 'security' || passId === 'devops') {
+    if (!Array.isArray(entryPoints) || entryPoints.length === 0) return '';
+    const lines = entryPoints.slice(0, 15).map(ep => `- ${ep.path} (${ep.kind}${ep.name ? `: ${ep.name}` : ''})`);
+    return `\n\nExecution surfaces in scope (review with extra attention to exposed surface):\n${lines.join('\n')}`;
+  }
+
+  return '';
+}
+
 const baseReviewPrompt = (passId, role, focus) => `Role: ${role}.
 
 Scope: ${SCOPE}
 Framework: ${FRAMEWORK}
-${testGapContext}
+${testGapContext}${slopContextFor(passId)}
 
 Focus on:
 ${focus.map(item => `- ${item}`).join('\n')}

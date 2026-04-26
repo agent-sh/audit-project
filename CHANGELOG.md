@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-04-26
+
+### Security
+
+- consolidateFindings mirrors prepare-delivery's false-positive sanity cap (50% ratio + falsePositiveReason requirement). Callers must check the new blocked signal — wiring the orchestrator is a follow-up.
+
 ### Added
 
 - Wire painspots and bugspots into review prioritization - Phase 1 queries top 10 painspots (hotspot × complexity × bug density) and top 10 bugspots from agent-analyzer and passes them to Phase 2 review agents as priority context

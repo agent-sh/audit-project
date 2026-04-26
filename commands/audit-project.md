@@ -300,7 +300,6 @@ If verification fails:
 let agentResults = /* raw results from Phase 2 review */;
 let consolidated = consolidateFindings(agentResults); // see audit-project-agents.md
 let iteration = 1;
-let suspiciousOverride = false;
 let remainingIssues = consolidated.all.filter(f => !f.falsePositive);
 
 while (true) {
@@ -341,7 +340,6 @@ while (true) {
       remainingIssues = consolidated.all.filter(f => !f.falsePositive);
       // fall through to zero-issues check with re-aggregated view
     } else if (choice === 'Override and approve') {
-      suspiciousOverride = true;
       workflowState.completePhase({
         approved: true,
         iterations: iteration,

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-04-26
+
+### Security
+- **Orchestrator now handles `consolidateFindings.blocked` signal** (#27). Mirrors prepare-delivery's 3-option escalation: treat flagged as open (re-aggregate in place), override and approve, or abort. Closes the gap where a suspicious reviewer output was blocked at aggregation but the orchestrator ignored the flag.
+
+### Docs
+- REVIEWER-CONTRACT marker comments + drift-sync note in CLAUDE.md (#28).
+
 ## [1.0.1] - 2026-04-26
 
 ### Security

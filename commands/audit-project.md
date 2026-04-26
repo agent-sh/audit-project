@@ -292,12 +292,74 @@ If verification fails:
 ## Phase 6: Iteration
 
 ```javascript
-const initialReview = /* results from Phase 2 review */;
-const initialIssues = Array.isArray(initialReview?.issues) ? initialReview.issues : [];
+// initialAgentResults: raw agent outputs from Phase 2 (array of {pass, findings}).
+// We keep raw results around so we can re-aggregate in place if the suspicious
+// false-positive gate trips - mirrors prepare-delivery/orchestrate-review's
+// pattern where "Treat flagged as open" strips flags on CURRENT results
+// rather than re-spawning reviewers.
+let agentResults = /* raw results from Phase 2 review */;
+let consolidated = consolidateFindings(agentResults); // see audit-project-agents.md
 let iteration = 1;
-let remainingIssues = initialIssues;
+let suspiciousOverride = false;
+let remainingIssues = consolidated.all.filter(f => !f.falsePositive);
 
-while (remainingIssues.length > 0) {
+while (true) {
+  // Suspicious false-positive ratio: escalate to user instead of auto-zeroing
+  // the gate. Prevents a prompt-injected reviewer subagent from mass-marking
+  // findings as falsePositive to bypass the severity counter. Must run BEFORE
+  // the zero-issues exit check - otherwise a blocked result with all findings
+  // flagged would slip through as "zero remaining".
+  if (consolidated.blocked) {
+    console.log(`[BLOCKED] ${consolidated.blockReason}`);
+    const question = `Review loop blocked: ${consolidated.blockReason}. How should we proceed?`;
+    const response = await AskUserQuestion({
+      questions: [{
+        question,
+        header: 'Suspicious Reviewer Output',
+        multiSelect: false,
+        options: [
+          { label: 'Treat flagged findings as open', description: 'Re-aggregate ignoring falsePositive flags and continue review loop' },
+          { label: 'Override and approve', description: 'Trust the reviewer output as-is (risky)' },
+          { label: 'Abort workflow', description: 'Stop here; human must inspect review queue manually' }
+        ]
+      }]
+    });
+    const choice = response.answers?.[question] ?? response[question];
+    if (choice === 'Treat flagged findings as open') {
+      // Strip falsePositive flags on the CURRENT raw agent results and
+      // re-consolidate in place. Do NOT `continue` - that would fall back
+      // to the top of the loop, which assumes consolidated is already set.
+      // Falling through after reassigning lets the iteration proceed on the
+      // corrected view without re-spawning reviewers.
+      for (const r of agentResults) {
+        for (const f of (r.findings || [])) {
+          f.falsePositive = false;
+          delete f.falsePositiveReason;
+        }
+      }
+      consolidated = consolidateFindings(agentResults);
+      remainingIssues = consolidated.all.filter(f => !f.falsePositive);
+      // fall through to zero-issues check with re-aggregated view
+    } else if (choice === 'Override and approve') {
+      suspiciousOverride = true;
+      workflowState.completePhase({
+        approved: true,
+        iterations: iteration,
+        suspicious: true,
+        falsePositiveRatio: consolidated.falsePositiveRatio
+      });
+      break;
+    } else {
+      workflowState.failPhase(`Review blocked: ${consolidated.blockReason}`);
+      break;
+    }
+  }
+
+  if (remainingIssues.length === 0) {
+    console.log("[OK] Zero issues remaining!");
+    break;
+  }
+
   const fixResult = applyFixes(remainingIssues);
 
   const verifyResult = runVerification();
@@ -305,13 +367,12 @@ while (remainingIssues.length > 0) {
     rollbackFailed(fixResult);
   }
 
-  const reReviewResult = reReview(fixResult.changedFiles);
-  remainingIssues = reReviewResult.issues;
-
-  if (remainingIssues.length === 0) {
-    console.log("[OK] Zero issues remaining!");
-    break;
-  }
+  // Re-review returns raw agent results (same shape as Phase 2) so we can
+  // re-run consolidateFindings and get a fresh `blocked` signal for the
+  // next iteration.
+  agentResults = reReview(fixResult.changedFiles);
+  consolidated = consolidateFindings(agentResults);
+  remainingIssues = consolidated.all.filter(f => !f.falsePositive);
 
   iteration++;
 }

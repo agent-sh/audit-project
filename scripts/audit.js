@@ -11,7 +11,7 @@ const lib = path.join(__dirname, '..', 'lib');
 const USAGE = `usage:
   audit.js context [scope]                  project facts and repo-intel signals as JSON
   audit.js queue-init --scope S [--resume]  create (or with --resume, reopen the latest) queue; prints its path
-  audit.js add <queue> [file]               add one reviewer result ({pass, findings}) from file or stdin
+  audit.js add <queue> --pass ID [file]     store one reviewer result ({pass, findings}) from file or stdin
   audit.js consolidate <queue> [--strip-false-positives]
                                             dedupe, sort and count findings; enforce the false-positive contract
   audit.js close <queue>                    delete the queue if no open findings remain
@@ -190,7 +190,13 @@ function loadQueue(file) {
   return q;
 }
 
-function cmdAdd(file, src) {
+function cmdAdd(file, args) {
+  const i = args.indexOf('--pass');
+  // The orchestrator names the pass. The id inside the result comes from a reviewer that read
+  // untrusted code, so it may confirm the slot but never choose it.
+  const pass = i >= 0 ? args[i + 1] : null;
+  if (!pass || pass.startsWith('--')) fail('add needs --pass <id> for the pass that produced this result');
+  const src = args.filter((a, j) => j !== i && j !== i + 1)[0];
   const q = loadQueue(file);
   const text = src ? fs.readFileSync(src, 'utf8') : fs.readFileSync(0, 'utf8');
   let result;
@@ -198,7 +204,9 @@ function cmdAdd(file, src) {
   if (!result || typeof result !== 'object' || !Array.isArray(result.findings)) {
     fail('reviewer result needs {"pass": "...", "findings": [...]}', 1);
   }
-  const pass = String(result.pass || 'unknown');
+  if (result.pass !== undefined && String(result.pass) !== pass) {
+    fail(`result says pass "${result.pass}" but was added as "${pass}"; not stored`, 1);
+  }
   // A pass re-run after fixes replaces its earlier result.
   q.results = q.results.filter(r => r.pass !== pass).concat([{ pass, findings: result.findings }]);
   q.updatedAt = new Date().toISOString();
@@ -284,7 +292,7 @@ async function main() {
   switch (cmd) {
     case 'context': return cmdContext(args[0]);
     case 'queue-init': return cmdQueueInit(args);
-    case 'add': return cmdAdd(args[0], args[1]);
+    case 'add': return cmdAdd(args[0], args.slice(1));
     case 'consolidate': return cmdConsolidate(args[0], args.slice(1));
     case 'close': return cmdClose(args[0]);
     default: fail(USAGE);

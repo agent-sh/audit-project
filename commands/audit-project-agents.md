@@ -90,12 +90,12 @@ The queue file lives in the platform state dir and is managed by the script, so 
 
 ```bash
 Q=$(node "${CLAUDE_PLUGIN_ROOT}/scripts/audit.js" queue-init --scope "<scope>" [--resume])
-node "${CLAUDE_PLUGIN_ROOT}/scripts/audit.js" add "$Q" <result.json      # once per pass; stdin also works
+node "${CLAUDE_PLUGIN_ROOT}/scripts/audit.js" add "$Q" --pass <id> <result.json   # once per pass; stdin also works
 node "${CLAUDE_PLUGIN_ROOT}/scripts/audit.js" consolidate "$Q"            # after every round
 node "${CLAUDE_PLUGIN_ROOT}/scripts/audit.js" close "$Q"                  # deletes it once nothing is open
 ```
 
-`add` replaces an earlier result for the same pass, so a re-review after fixes updates that pass in place. `consolidate` dedupes by pass, file, line and description, sorts critical first, honors `falsePositive` only with a reason, and sets `blocked` when more than half of 10 or more findings are flagged. `--strip-false-positives` clears every flag and re-counts.
+`--pass` is the id of the pass you spawned, not the one the reviewer wrote: a reviewer steered by the code it read could otherwise name another pass and overwrite its findings. `add` refuses a result whose own `pass` disagrees, and replaces an earlier result for the same pass, so a re-review after fixes updates that pass in place. `consolidate` dedupes by pass, file, line and description, sorts critical first, honors `falsePositive` only with a reason, and sets `blocked` when more than half of 10 or more findings are flagged. `--strip-false-positives` clears every flag and re-counts.
 
 A reviewer that returns something other than valid JSON is re-asked once; after that, record the pass as failed in the report and go on.
 

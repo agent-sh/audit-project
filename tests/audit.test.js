@@ -57,8 +57,11 @@ test('queue lifecycle: init, add, consolidate, strip, close', () => {
     assert.ok(fs.existsSync(queue));
 
     const findings = Array.from({ length: 10 }, (_, i) => finding(i, { falsePositive: true, falsePositiveReason: 'said so' }));
-    assert.equal(run(['add', queue], JSON.stringify({ pass: 'security', findings })).status, 0);
-    assert.equal(run(['add', queue], 'not json').status, 1);
+    assert.equal(run(['add', queue, '--pass', 'security'], JSON.stringify({ pass: 'security', findings })).status, 0);
+    assert.equal(run(['add', queue, '--pass', 'security'], 'not json').status, 1);
+    assert.equal(run(['add', queue], JSON.stringify({ pass: 'security', findings })).status, 2, 'no --pass is refused');
+    const spoof = run(['add', queue, '--pass', 'performance'], JSON.stringify({ pass: 'security', findings: [] }));
+    assert.equal(spoof.status, 1, 'a result cannot claim another pass');
 
     const blocked = JSON.parse(run(['consolidate', queue]).stdout);
     assert.equal(blocked.blocked, true);
@@ -68,7 +71,7 @@ test('queue lifecycle: init, add, consolidate, strip, close', () => {
     assert.equal(stripped.open, 10);
     assert.equal(JSON.parse(run(['close', queue]).stdout).removed, false);
 
-    assert.equal(run(['add', queue], JSON.stringify({ pass: 'security', findings: [] })).status, 0);
+    assert.equal(run(['add', queue, '--pass', 'security'], JSON.stringify({ findings: [] })).status, 0);
     run(['consolidate', queue]);
     assert.equal(JSON.parse(run(['close', queue]).stdout).removed, true);
     assert.ok(!fs.existsSync(queue));

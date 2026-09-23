@@ -11,7 +11,7 @@
 ### Changed
 - Rewrote `/audit-project`, its two reference commands and the skill for current models: goal, constraints with reasons and a definition of done per step, in place of phase pseudocode.
 - The false-positive contract is enforced by `consolidate` in code: a dismissal needs a reason, and more than half of 10+ findings dismissed sets `blocked`. The reviewer-facing contract text is unchanged in intent and kept in sync with prepare-delivery.
-- Reviewers no longer write the queue file themselves. They return JSON and `add` stores it, so parallel passes cannot corrupt the file.
+- Reviewers no longer write the queue file themselves. They return JSON and `add --pass <id>` stores it under the id the orchestrator spawned, so parallel passes cannot corrupt the file and a steered reviewer cannot overwrite another pass's findings.
 - Reviewer passes spawn a `general-purpose` agent in Claude Code. The old `subagent_type: "review"` named an agent type that does not exist.
 - Framework detection ignores docs and lockfiles and covers more frameworks; `node_modules` no longer counts.
 - Removed the framework regex tables and `applyPatterns`, which only attached a label to findings.

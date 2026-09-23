@@ -33,7 +33,7 @@ If `git` and `gh` are available, create issues for **non-security** deferred ite
 if [ "$GH_AVAILABLE" = "true" ] && [ "$IS_GITHUB_REPO" = "true" ]; then
   echo "Creating GitHub issues for deferred items..."
 
-  # DO NOT create public issues for security-sensitive findings
+  # Security-sensitive findings never go into public issues (see Security Issue Handling)
   for issue in "${DEFERRED_NON_SECURITY_ISSUES[@]}"; do
     gh issue create \
       --title "${issue.title}" \
@@ -77,9 +77,9 @@ Each created issue includes:
 
 ```
 
-  [WARN] SECURITY ISSUES MUST NOT BE PUBLIC
+  [WARN] Security findings stay out of public issues: a public issue discloses the hole before it is fixed.
 
-  The following must NOT be created as GitHub issues:
+  Do not create GitHub issues for:
   - Token/credential exposure
   - Authentication vulnerabilities
   - Authorization bypasses

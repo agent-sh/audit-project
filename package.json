@@ -1,6 +1,6 @@
 {
   "name": "@agentsys/audit-project",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Multi-agent iterative code review until zero issues remain",
   "author": {
     "name": "Avi Fenesh",
@@ -19,5 +19,8 @@
     "multi-agent",
     "framework-specific",
     "iterative"
-  ]
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
 }

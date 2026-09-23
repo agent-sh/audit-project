@@ -54,8 +54,8 @@ Requires [agentsys](https://github.com/agent-sh/agentsys) as the plugin runtime.
 | Agent | Activated when |
 |-------|---------------|
 | architecture-reviewer | 50+ tracked files |
-| database-specialist | Sequelize, Prisma, or TypeORM detected |
-| api-designer | Express, Fastify, or NestJS detected |
+| database-specialist | An ORM or query builder (Sequelize, Prisma, TypeORM, mongoose, SQLAlchemy, knex, drizzle) in tracked code |
+| api-designer | A server framework in tracked code |
 | frontend-specialist | .tsx, .jsx, .vue, or .svelte files present |
 | backend-specialist | Server framework detected |
 | devops-reviewer | CI/CD configuration files present |
@@ -75,6 +75,10 @@ Every finding includes file:line location, severity (critical/high/medium/low), 
 /audit-project --create-tech-debt   # Force TECHNICAL_DEBT.md creation
 /audit-project --resume             # Resume from a saved review queue
 ```
+
+### Scripts
+
+`scripts/audit.js` does the deterministic parts: project detection (`context`) and the review queue (`queue-init`, `add`, `consolidate`, `close`). `consolidate` enforces the false-positive contract in code: a dismissal needs a reason, and a round where more than half of 10+ findings are dismissed stops for the user.
 
 ### Repo Intelligence
 

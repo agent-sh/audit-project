@@ -1,6 +1,6 @@
 {
   "name": "audit-project",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "description": "Multi-agent iterative code review until zero issues remain",
   "author": {
     "name": "Avi Fenesh",

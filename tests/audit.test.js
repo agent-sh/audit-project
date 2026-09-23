@@ -46,6 +46,12 @@ test('duplicates collapse and severity sorts critical first', () => {
   assert.equal(items[0].severity, 'critical');
 });
 
+test('a finding cannot relabel its own pass or id', () => {
+  const { items } = consolidate([{ pass: 'performance', findings: [finding(1, { pass: 'security', id: 'x' })] }]);
+  assert.equal(items[0].pass, 'performance');
+  assert.equal(items[0].id, 'performance:src/f1.js:1:issue 1');
+});
+
 test('queue lifecycle: init, add, consolidate, strip, close', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-queue-'));
   const run = (args, input) => spawnSync(process.execPath, [script, ...args], { cwd: dir, encoding: 'utf8', input });

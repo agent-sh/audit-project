@@ -228,10 +228,11 @@ function consolidate(results) {
       const id = `${r.pass}:${f.file}:${f.line}:${f.description}`;
       if (seen.has(id)) continue;
       seen.add(id);
+      // Computed fields go last so a finding cannot relabel its own id or pass.
       items.push({
+        ...f,
         id,
         pass: r.pass,
-        ...f,
         falsePositive,
         falsePositiveReason: reason || undefined,
         reasonMissing: f.falsePositive === true && reason.length === 0,

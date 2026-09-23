@@ -2,143 +2,60 @@
 codex-description: "Create GitHub issues for non-security deferred findings identified by /audit-project."
 ---
 
-# Phase 8: GitHub Issue Creation - Reference
+# /audit-project: GitHub issues
 
-This file contains GitHub integration for `/audit-project`.
+Reference for the "Create issues" choice in `/audit-project` (`audit-project.md`). Runs only when the user picked it: filing issues publishes findings, so it is never a default.
 
-**Parent document**: `audit-project.md`
+## Preconditions
 
-## Pre-Conditions
+`git` and `gh` are installed, `gh auth status` succeeds, and `origin` points at GitHub. If any is missing, keep the findings in `TECHNICAL_DEBT.md` and say why issues were not created.
 
-```bash
-# Check if git and gh are available
-GIT_AVAILABLE=$(command -v git >/dev/null 2>&1 && echo "true" || echo "false")
-GH_AVAILABLE=$(command -v gh >/dev/null 2>&1 && echo "true" || echo "false")
+## What gets filed
 
-# Check if this is a GitHub repository
-IS_GITHUB_REPO="false"
-if [ "$GIT_AVAILABLE" = "true" ]; then
-  REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
-  if echo "$REMOTE_URL" | grep -q "github.com"; then
-    IS_GITHUB_REPO="true"
-  fi
-fi
-```
+Deferred findings that are not security-sensitive. Show the user the list of titles before creating them, since each one lands in a public or shared tracker.
 
-## Creating GitHub Issues
-
-If `git` and `gh` are available, create issues for **non-security** deferred items:
+Never file security findings (credential or token exposure, authentication or authorization flaws, injection, anything exploitable). A public issue discloses the hole before it is fixed. Fix them now if you can; otherwise list them in the report by file and severity only.
 
 ```bash
-if [ "$GH_AVAILABLE" = "true" ] && [ "$IS_GITHUB_REPO" = "true" ]; then
-  echo "Creating GitHub issues for deferred items..."
-
-  # Security-sensitive findings never go into public issues (see Security Issue Handling)
-  for issue in "${DEFERRED_NON_SECURITY_ISSUES[@]}"; do
-    gh issue create \
-      --title "${issue.title}" \
-      --body "${issue.body}"
-  done
-
-  echo "Created ${#DEFERRED_NON_SECURITY_ISSUES[@]} GitHub issues"
-fi
+gh issue create --title "<title>" --body-file <body.md>
 ```
 
-## Issue Format
-
-Each created issue includes:
+Issue body:
 
 ```markdown
 ## Issue from /audit-project
 
-**Severity**: [Critical|High|Medium|Low]
-**Category**: [Performance|Architecture|Code Quality|Enhancement]
-**Effort**: [Small|Medium|Large] (~X hours)
+**Severity**: Critical | High | Medium | Low
+**Category**: Performance | Architecture | Code Quality | Enhancement
+**Effort**: Small | Medium | Large
 
 ### Description
-[Description of the issue]
+{what is wrong and why it matters}
 
 ### Current Behavior
-\`\`\`[language]
-[Code showing the problem]
-\`\`\`
+{1 to 3 lines of the code, fenced with its language}
 
 ### Proposed Fix
-[Specific remediation approach]
-
-### Impact
-[Why this matters]
+{the specific change}
 
 ### Files
-- [List of affected files]
+- {path:line}
 ```
 
-## Security Issue Handling
+## TECHNICAL_DEBT.md afterwards
+
+Remove `TECHNICAL_DEBT.md` only when every non-security item in it now has an issue, no security items are in it, and the user did not pass `--create-tech-debt`. Otherwise keep it and update it.
+
+## Commit
+
+Commit only the files the audit changed (the fixes and `TECHNICAL_DEBT.md`), named explicitly with `git add <files>`. Other uncommitted work in the tree is the user's and stays out of the commit.
 
 ```
+chore: audit-project complete - issues tracked in GitHub
 
-  [WARN] Security findings stay out of public issues: a public issue discloses the hole before it is fixed.
+Created N GitHub issues for deferred items:
+- #123: {title}
 
-  Do not create GitHub issues for:
-  - Token/credential exposure
-  - Authentication vulnerabilities
-  - Authorization bypasses
-  - Injection vulnerabilities
-  - Any exploitable security finding
-
-  For security issues:
-  1. Fix immediately if possible
-  2. Keep documented internally only
-  3. Note in completion report (no details)
-
-```
-
-## TECHNICAL_DEBT.md Cleanup
-
-After all issues are handled, remove TECHNICAL_DEBT.md:
-
-```bash
-if [ "$GH_AVAILABLE" = "true" ] && [ "$IS_GITHUB_REPO" = "true" ]; then
-  if [ -f "TECHNICAL_DEBT.md" ]; then
-    rm TECHNICAL_DEBT.md
-    git add TECHNICAL_DEBT.md
-    git commit -m "chore: remove TECHNICAL_DEBT.md - issues tracked in GitHub
-
-Created GitHub issues for all deferred non-security items.
-Security-sensitive issues kept internal."
-    echo "Removed TECHNICAL_DEBT.md - issues now in GitHub"
-  fi
-else
-  echo "TECHNICAL_DEBT.md retained - no GitHub integration"
-fi
-```
-
-## Cleanup Conditions
-
-**Remove TECHNICAL_DEBT.md when ALL true:**
-1. `git` is available
-2. `gh` CLI is available and authenticated
-3. Repository has GitHub remote
-4. All non-security issues created as GitHub issues
-
-**Keep TECHNICAL_DEBT.md when ANY true:**
-1. No GitHub integration available
-2. `gh` CLI not authenticated
-3. User requested `--create-tech-debt` flag
-4. Security issues exist
-
-## Final Commit
-
-If issues were created:
-
-```bash
-git add -A
-git commit -m "chore: audit-project complete - issues tracked in GitHub
-
-Created X GitHub issues for deferred items:
-- #N: [issue title]
-- #N: [issue title]
-
-Security-sensitive issues (Y total) kept internal.
-Fixed Z issues in this review session."
+Security-sensitive findings (M) kept internal.
+Fixed K issues in this review session.
 ```

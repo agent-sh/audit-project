@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-24
+
+### Added
+- `scripts/audit.js`: `context` (project type, framework, DB/API/frontend/backend/CI signals, repo-intel lists) and the review queue (`queue-init`, `add`, `consolidate`, `close`). The command described all of this as JavaScript and shell for the model to act out.
+- `tests/audit.test.js` and an `npm test` script (the package had none, so CI ran nothing).
+
+### Changed
+- Rewrote `/audit-project`, its two reference commands and the skill for current models: goal, constraints with reasons and a definition of done per step, in place of phase pseudocode.
+- The false-positive contract is enforced by `consolidate` in code: a dismissal needs a reason, and more than half of 10+ findings dismissed sets `blocked`. The reviewer-facing contract text is unchanged in intent and kept in sync with prepare-delivery.
+- Reviewers no longer write the queue file themselves. They return JSON and `add` stores it, so parallel passes cannot corrupt the file.
+- Reviewer passes spawn a `general-purpose` agent in Claude Code. The old `subagent_type: "review"` named an agent type that does not exist.
+- Framework detection ignores docs and lockfiles and covers more frameworks; `node_modules` no longer counts.
+- Removed the framework regex tables and `applyPatterns`, which only attached a label to findings.
+
+### Fixed
+- Issue creation runs only when the user picks it, and the titles are shown first. Without AskUserQuestion the loop never files issues.
+- The final commit names the files the audit changed instead of `git add -A`, which swept the user's unrelated uncommitted work into the commit.
+- Fix rollback restores the file that broke verification by name and warns about files that already had uncommitted changes.
+
 ## [1.1.0] - 2026-09-23
 
 ### Changed

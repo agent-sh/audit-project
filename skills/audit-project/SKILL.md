@@ -1,6 +1,6 @@
 ---
 name: audit-project
-description: "Use when user asks to 'review my code', 'audit the codebase', 'run code review', 'check for issues', 'find bugs', 'security review', 'performance review', or wants multi-agent iterative review. Spawns role-based reviewers (code-quality-reviewer, security-expert, performance-engineer, test-quality-guardian, architecture-reviewer, database-specialist, api-designer, frontend-specialist, backend-specialist, devops-reviewer) and loops until critical/high issues are resolved."
+description: "Use when the user asks to review or audit code: 'review my code', 'audit the codebase', 'find bugs', 'security review', 'performance review'. Runs role-based reviewers and loops until no critical or high issues remain."
 argument-hint: "[scope] [--recent] [--domain AGENT] [--quick] [--create-tech-debt] [--resume]"
 ---
 
@@ -52,7 +52,7 @@ The skill delegates to the `/audit-project` command, which orchestrates the full
 | backend-specialist | Scaling, concurrency, error handling |
 | devops-reviewer | CI/CD, secrets exposure, build hygiene |
 
-These are spawned dynamically via the Task tool. There are no file-based agent definitions for them.
+These are spawned dynamically via the Task tool. There are no file-based agent definitions for them. On a harness without Task (Codex, OpenCode), run the same passes one after another in the current session.
 
 ## Severity classification
 

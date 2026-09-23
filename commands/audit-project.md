@@ -20,6 +20,16 @@ Comprehensive code review using specialized AI agents with iterative improvement
 | 7 | Completion Report | This file |
 | 8 | GitHub Issues | See `audit-project-github.md` |
 
+## Harness Defaults
+
+The phases below call Claude Code tools. On a harness that lacks one, do not stop; use these defaults:
+
+| Tool | Default without it |
+|------|--------------------|
+| `Task` (reviewer subagents) | Run each review pass sequentially in the current session with the same prompt and output format |
+| `AskUserQuestion`, blocked review loop (Phase 6) | `Treat flagged findings as open`: never auto-approve suspicious output |
+| `AskUserQuestion`, decision gate (Phase 6.5) | `Continue review` while critical or high issues remain and fewer than 5 iterations ran; otherwise `Leave queue` and report the queue path |
+
 ## Arguments
 
 Parse from $ARGUMENTS:
@@ -202,7 +212,7 @@ See `audit-project-agents.md` for detailed agent coordination.
 
 ### Finding Format (Required)
 
-Every finding MUST include:
+Every finding includes:
 - **File:Line**: Exact location (e.g., `src/auth/session.ts:42`)
 - **Severity**: critical | high | medium | low
 - **Category**: From agent domain
@@ -311,6 +321,7 @@ while (true) {
   if (consolidated.blocked) {
     console.log(`[BLOCKED] ${consolidated.blockReason}`);
     const question = `Review loop blocked: ${consolidated.blockReason}. How should we proceed?`;
+    // No AskUserQuestion (Codex, OpenCode): take 'Treat flagged findings as open'.
     const response = await AskUserQuestion({
       questions: [{
         question,
@@ -389,6 +400,8 @@ const openCount = remainingIssues.length;
 console.log(`Open issues: ${openCount}`);
 console.log(`Queue file: ${reviewQueuePath}`); // set in Phase 2 (audit-project-agents)
 
+// No AskUserQuestion (Codex, OpenCode): 'Continue review' while critical/high
+// issues remain and iteration < 5, else 'Leave queue'. See Harness Defaults.
 const decision = await AskUserQuestion({
   questions: [{
     header: "Audit Decision",

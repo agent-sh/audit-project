@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-23
+
+### Changed
+- Skill description cut to one trigger sentence (under 40 words) so Codex does not truncate it.
+- `/audit-project` states defaults for harnesses without `Task` or `AskUserQuestion` (Codex, OpenCode): review passes run sequentially, a blocked loop treats flagged findings as open, and the decision gate continues while critical/high issues remain (up to 5 iterations), then leaves the queue.
+- Review passes no longer point at prepare-delivery's `orchestrate-review` as a required source.
+- All-caps wording dropped where it was not a safety constraint. The rule that security findings stay out of public issues keeps its reason.
+
 ## [1.0.2] - 2026-04-26
 
 ### Security

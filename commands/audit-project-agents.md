@@ -9,7 +9,9 @@ This file contains detailed agent coordination for `/audit-project`.
 
 **Parent document**: `audit-project.md`
 
-**Review Pass Definitions**: See `orchestrate-review` skill for canonical pass definitions (core + conditional). This command uses the same review passes but detects signals from project structure (not just changed files).
+**Review Pass Definitions**: The passes below are complete on their own. They match the `orchestrate-review` skill in prepare-delivery, but that plugin does not need to be installed. This command picks passes from project structure, not just changed files.
+
+**Without Task** (Codex, OpenCode): run each `Task({ prompt })` below sequentially in the current session and collect the same JSON output.
 
 ## Agent Specialization
 
@@ -440,8 +442,8 @@ function consolidateFindings(agentResults) {
 silently advance. It must surface the `blockReason` to the user (via
 `AskUserQuestion` or equivalent) and offer the choice to (a) re-aggregate
 with `falsePositive` flags stripped, (b) trust the reviewer output anyway,
-or (c) abort for manual inspection. See `orchestrate-review` SKILL.md
-iteration loop for the canonical handler.
+or (c) abort for manual inspection. With no question tool, take (a). The
+handler is in the Phase 6 loop of `audit-project.md`.
 
 ## Queue Cleanup
 

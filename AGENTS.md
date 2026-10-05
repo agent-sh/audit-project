@@ -1,58 +1,35 @@
 # audit-project
 
-> Multi-agent iterative code review until zero issues remain
+This repo is the audit-project plugin: multi-agent iterative code review that loops until no critical or high issues remain. Part of the [agentsys](https://github.com/agent-sh/agentsys) ecosystem; skills follow https://agentskills.io.
 
-## Commands
+## Rules
 
-- audit-project-agents
-- audit-project-github
-- audit-project
+- Output is plain text: no emojis or ASCII art. Status markers are `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]`.
+- Commit only product files. Summaries, plans and audit notes belong in the PR or the conversation.
+- A change is done when its tests pass; a feature or fix comes with a test that covers it.
+- Non-trivial changes go through a PR, not a direct push to main. Run the git hooks; do not bypass them.
+- In prose use ` - ` (single dash with spaces), not ` -- `.
+- If a script fails, report the failure before doing the step by hand, so broken tooling gets fixed.
+- Agent models: Opus for complex reasoning and planning, Sonnet for validation and most agents, Haiku for mechanical work.
+- Priorities, in order: plugin users' experience, automation that needs no babysitting, token efficiency, output quality, simplicity.
 
-## Critical Rules
+## Reviewer contract
 
-1. **Plain text output** - No emojis, no ASCII art. Use `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]` for status markers.
-2. **No unnecessary files** - Don't create summary files, plan files, audit files, or temp docs.
-3. **Task is not done until tests pass** - Every feature/fix must have quality tests.
-4. **Create PRs for non-trivial changes** - No direct pushes to main.
-5. **Always run git hooks** - Never bypass pre-commit or pre-push hooks.
-6. **Use single dash for em-dashes** - In prose, use ` - ` (single dash with spaces), never ` -- `.
-7. **Report script failures before manual fallback** - Never silently bypass broken tooling.
-8. **Token efficiency** - Save tokens over decorations.
-9. **Reviewer contract sync** - The REVIEWER CONTRACT block in `commands/audit-project-agents.md` is duplicated in `prepare-delivery/skills/orchestrate-review/SKILL.md`. When editing either block, update both. They must agree in intent; wording differs slightly. No tool enforces this today; a CI check is a known follow-up.
+The REVIEWER CONTRACT block in `commands/audit-project-agents.md` is duplicated in the prepare-delivery plugin's [orchestrate-review skill](https://github.com/agent-sh/prepare-delivery/blob/main/skills/orchestrate-review/SKILL.md). When you edit either copy, update the other so they agree in intent; the wording may differ. Nothing checks this automatically.
 
-## Model Selection
+## Layout
 
-| Model | When to Use |
-|-------|-------------|
-| **Opus** | Complex reasoning, analysis, planning |
-| **Sonnet** | Validation, pattern matching, most agents |
-| **Haiku** | Mechanical execution, no judgment needed |
+- `commands/audit-project.md`: the `/audit-project` command.
+- `commands/audit-project-agents.md`: the review passes, the reviewer prompt and the queue.
+- `commands/audit-project-github.md`: filing deferred findings as GitHub issues.
+- `skills/audit-project/SKILL.md`: the skill that routes to the command.
+- `scripts/audit.js`: project context and the review queue (`queue-init`, `add`, `consolidate`, `close`).
 
-## Core Priorities
-
-1. User DX (plugin users first)
-2. Worry-free automation
-3. Token efficiency
-4. Quality output
-5. Simplicity
-
-## Dev Commands
+## Checks
 
 ```bash
-npm test          # Run tests
-npm run validate  # All validators
+npm test   # tests/audit.test.js
+agnix .    # agent config lint (also runs in CI)
 ```
 
-## References
-
-- Part of the [agentsys](https://github.com/agent-sh/agentsys) ecosystem
-- https://agentskills.io
-
-## Validation scope
-
-Choose checks that cover the changed behavior. For CPU-only tooling, documentation
-and configuration changes, run the relevant CPU tests, static checks and configuration
-validation. Do not require a blanket GPU gate for those changes. Require GPU
-qualification when GPU, runtime or model behavior, or related claims, change.
-Preserve applicable native, model and hardware qualification gates. CPU checks do
-not qualify GPU behavior.
+User-visible changes get a CHANGELOG entry under `[Unreleased]`.

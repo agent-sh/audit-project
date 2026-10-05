@@ -125,15 +125,3 @@ Last updated: {date}
 ## Progress Tracking
 - [ ] {issue}
 ```
-
-## Examples
-
-```bash
-/audit-project                    # full review
-/audit-project --recent           # last 5 commits only
-/audit-project src/api            # one path
-/audit-project --domain security  # security pass only
-/audit-project --quick            # findings only, no fixes
-/audit-project --create-tech-debt # always write TECHNICAL_DEBT.md
-/audit-project --resume           # continue the saved queue
-```

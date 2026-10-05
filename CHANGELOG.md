@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- AGENTS.md rewritten for current models, and the `/audit-project` examples block removed (it repeated the arguments list). Same contract.
+
 ## [1.2.0] - 2026-09-24
 
 ### Added

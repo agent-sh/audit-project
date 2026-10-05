@@ -4,6 +4,7 @@
 
 ### Changed
 - AGENTS.md rewritten for current models, and the `/audit-project` examples block removed (it repeated the arguments list). Same contract.
+- `.agnix.toml` no longer disables the six rules that existed only for the old generated AGENTS.md, so the lint covers the new one.
 
 ## [1.2.0] - 2026-09-24
 
